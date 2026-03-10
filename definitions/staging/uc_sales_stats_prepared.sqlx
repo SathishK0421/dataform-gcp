@@ -2,7 +2,7 @@ config {
   type: "view",
   //* schema: "sales_curated_poc",
   name: "uc_sales_stats_prepared",
-  tags: ["staging","uc_sales_stats","billing"],
+  tags: ["staging","uc_sales_stats","billing",'fact_gen'],
   description: "CTE-heavy preparation from CDC and mapping before final curated projection."
 }
 
