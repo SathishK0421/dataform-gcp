@@ -1,0 +1,32 @@
+-- config {
+--   type: "table",
+--   tags: ["start_routine"],
+--   bigquery: {
+--     partitionBy: "DATE(BUDAT)",
+--     clusterBy: ["BUKRS","SPARTE"]
+--   }
+-- }
+
+-- SELECT
+--   s.*,
+
+--   CASE
+--     WHEN s.STGRQNT='RQENGY'
+--      AND s.MASSBILL='GJ'
+--     THEN s.MENGE
+--     ELSE s.ZZ_EDM_QTY
+--   END AS ZZ_EDM_QTY_CALC,
+
+--   CASE
+--     WHEN s.BUCHREL='X'
+--     THEN s.BETRAG
+--     ELSE 0
+--   END AS ZZ_EDM_AMT_CALC,
+
+--   s.AB AS AB_CALC,
+--   s.BIS AS BIS_CALC,
+--   s.VBRMONAT AS VBRMONAT_CALC
+
+-- FROM ${ref("stg_sales_stats")} s
+
+-- WHERE s.BUKRS IN ('7003','7006','7007')
