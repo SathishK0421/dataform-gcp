@@ -1,10 +1,11 @@
 config {
   type: "view",
-  schema: "sales_curated_poc",
+  //* schema: "sales_curated_poc",
   name: "uc_sales_stats_prepared",
   tags: ["staging","uc_sales_stats","billing"],
   description: "CTE-heavy preparation from CDC and mapping before final curated projection."
 }
+
 WITH CDC_WRAPPER AS (
   WITH UTIL_MAPPING AS (
     SELECT DIVISION, UTILITY, STATE, BACKCAST_UTILITY
