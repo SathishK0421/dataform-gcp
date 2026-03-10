@@ -5,12 +5,6 @@ config {
   tags: ["staging","uc_sales_stats","billing"],
   description: "CTE-heavy preparation from CDC and mapping before final curated projection."
 }
-
-/* NOTE:
-   - Replaced external tables with ${ref("...")}
-   - Fixed minor copy artifacts (e.g., NUMER IC -> NUMERIC, \> -> >, \<\> -> <>)
-*/
-
 WITH CDC_WRAPPER AS (
   WITH UTIL_MAPPING AS (
     SELECT DIVISION, UTILITY, STATE, BACKCAST_UTILITY
@@ -591,4 +585,4 @@ WITH CDC_WRAPPER AS (
     CAST(NULL AS NUMERIC) AS ZGASAMT
   FROM ALL_ROWS R
 )
-SELECT * FROM CDC_WRAPPER;
+SELECT * FROM CDC_WRAPPER
