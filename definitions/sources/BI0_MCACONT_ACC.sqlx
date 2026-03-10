@@ -1,0 +1,13 @@
+config {
+  type: "declaration",
+  database: "sapanalytics-309913",
+  schema: "sales_test_poc",
+  name: "BI0_MCACONT_ACC"
+}
+/*config {
+  type: "declaration",
+  database: "sapanalytics-309913",
+  schema: "sales_cdc_poc",
+  name: "VW_CONTRACT_FLAG"
+}
+*/

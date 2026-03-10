@@ -1,0 +1,5 @@
+config {
+    type : "view",
+    name: "start_routine",
+    description: "description about end routine "
+}

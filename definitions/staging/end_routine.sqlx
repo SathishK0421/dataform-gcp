@@ -1,0 +1,112 @@
+config {
+    type : "view",
+    name: "end_routine",
+    description: "description about end routine "
+}
+
+WITH
+constants AS (
+    SELECT
+        CAST(10.0     AS DECIMAL) AS c_ccfthm,   -- 1 CCF = ? THM
+        CAST(1000.0   AS DECIMAL) AS c_mcfccf,   -- 1 MCF = ? CCF
+        CAST(1.0      AS DECIMAL) AS c_dththm,   -- 1 DTH = ? THM
+        CAST(9.47817  AS DECIMAL) AS c_gjthm     -- 1 GJ  = ? THM
+),
+
+result_pkg AS (
+    SELECT * FROM ${ref("ZUC_ISU_02_70")}  
+),
+
+with_legacy AS (
+    SELECT
+        r.*,
+        COALESCE(leg.BIC_ZUCCALEG2, NULL) AS ZUCCALEG2_VAL
+    FROM result_pkg r
+    LEFT JOIN (
+        SELECT
+            CACONT_ACC,
+            ZUCCALEG2 AS BIC_ZUCCALEG2
+        FROM ${ref("BI0_MCACONT_ACC")}
+        WHERE OBJVERS = 'A'
+    ) leg ON leg.CACONT_ACC = r.CACONT_ACC
+),
+
+end_routine_final AS (
+    SELECT
+        r.*,
+        c.*,
+        r.ZUCCALEG2_VAL AS BIC_ZUCCALEG2,
+
+        CASE
+            WHEN r.DIVISION = '20'
+              OR r.UNIT IN ('THM','CCF','MCF','DTH','GJ')
+            THEN
+                CASE r.UNIT
+                    WHEN 'CCF' THEN
+                        CASE WHEN r.ZEDMQTY <> 0
+                             THEN r.ZEDMQTY * c.c_ccfthm
+                             ELSE 0 END
+                    WHEN 'MCF' THEN
+                        CASE WHEN r.ZEDMQTY <> 0
+                             THEN (r.ZEDMQTY * c.c_mcfccf) * c.c_ccfthm
+                             ELSE 0 END
+                    WHEN 'DTH' THEN
+                        CASE WHEN r.ZEDMQTY <> 0
+                             THEN r.ZEDMQTY * c.c_dththm
+                             ELSE 0 END
+                    WHEN 'THM' THEN r.ZEDMQTY
+                    WHEN 'GJ'  THEN
+                        CASE WHEN r.ZEDMQTY <> 0
+                             THEN r.ZEDMQTY * c.c_gjthm
+                             ELSE 0 END
+                    ELSE NULL
+                END
+            ELSE r.ZGASQTY   
+        END AS BIC_ZGASQTY_FINAL,
+
+        CASE
+            WHEN r.DIVISION = '20'
+              OR r.UNIT IN ('THM','CCF','MCF','DTH','GJ')
+            THEN 'THM'
+            ELSE r.ZGAS_UOM
+        END AS BIC_ZGAS_UOM_FINAL,
+
+        CASE
+            WHEN r.DIVISION = '20'
+              OR r.UNIT IN ('THM','CCF','MCF','DTH','GJ')
+            THEN r.ZEDMQTY
+            ELSE r.ZGASLQTY
+        END AS BIC_ZGASLQTY_FINAL,
+
+        CASE
+            WHEN r.DIVISION = '20'
+              OR r.UNIT IN ('THM','CCF','MCF','DTH','GJ')
+            THEN r.UNIT
+            ELSE r.ZGASL_UOM
+        END AS BIC_ZGASL_UOM_FINAL,
+
+        CASE
+            WHEN r.DIVISION = '20'
+              OR r.UNIT IN ('THM','CCF','MCF','DTH','GJ')
+            THEN r.ZEDMAMT
+            ELSE r.ZGASAMT
+        END AS BIC_ZGASAMT_FINAL,
+
+        CASE
+            WHEN r.DIVISION = '20'
+              OR r.UNIT IN ('THM','CCF','MCF','DTH','GJ')
+            THEN 0
+            ELSE r.ZEDMQTY
+        END AS ZEDMQTY_FINAL,
+
+        CASE
+            WHEN r.DIVISION = '20'
+              OR r.UNIT IN ('THM','CCF','MCF','DTH','GJ')
+            THEN 0
+            ELSE r.ZEDMAMT
+        END AS BIC_ZEDMAMT_FINAL
+
+    FROM with_legacy r
+    CROSS JOIN constants c
+)
+select * from end_routine_final
