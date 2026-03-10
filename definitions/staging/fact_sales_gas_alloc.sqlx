@@ -5,7 +5,6 @@ config {
     description: ""
 }
 
-create OR replace 
 
 SELECT
   BPARTNER,
