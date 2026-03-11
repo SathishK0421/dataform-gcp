@@ -1,0 +1,4 @@
+defaultProject: sapanalytics-309913
+defaultDataset: sales_poc_dev
+defaultAssertionDataset: dataform_assertions
+dataformCoreVersion: 3.0.42
