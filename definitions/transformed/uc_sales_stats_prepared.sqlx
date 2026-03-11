@@ -23,7 +23,7 @@ WITH
     SELECT
       *
     FROM
-      ${ref("UC_SALES_STATS_02_RPM_900_CDC")} ),
+      ${ref("src_sales_raw")} ),
     BUKRS_SPECIAL AS (
     SELECT
       S.*,
