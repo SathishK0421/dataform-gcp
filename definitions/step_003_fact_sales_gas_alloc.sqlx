@@ -1,0 +1,233 @@
+config {
+  type: "table",
+  schema: "sales_curated_poc",
+  name: "fact_sales_gas_alloc",
+  description: "SAP BW Migration | Transformation: 0R1JXIJEQ3760VDO5BJ05NQH5THVBXQ2 | Source: zuc_isu_02_70 | Generated: 2026-03-11 11:16:16",
+  tags: ["bw_migration"]
+}
+
+-- ===========================================================================
+-- SAP BW → BigQuery Migration (Dataform SQLX)
+-- Step         : 3
+-- Transformation: 0R1JXIJEQ3760VDO5BJ05NQH5THVBXQ2
+-- Source        : `sapanalytics-309913.sales_cdc_poc.zuc_isu_02_70`
+-- Target        : `sapanalytics-309913.sales_curated_poc.fact_sales_gas_alloc`
+-- Load Type     : FullLoad
+-- Generated     : 2026-03-11 11:16:16
+-- ===========================================================================
+
+WITH source_base AS (
+  SELECT *
+  FROM `sapanalytics-309913.sales_cdc_poc.zuc_isu_02_70`
+),
+bukrs_special AS (
+  SELECT
+    s.bpartner AS bpartner,
+    s.bus_area AS bus_area,
+    s.cacont_acc AS cacont_acc,
+    s.comp_code AS comp_code,
+    s.costcenter AS costcenter,
+    s.country AS country,
+    s.currency AS currency,
+    s.datefrom AS datefrom,
+    s.dateto AS dateto,
+    s.division AS division,
+    CAST(s.pstng_date AS STRING) AS pstng_date,
+    s.region AS region,
+    s.uccntrcnt AS uccntrcnt,
+    s.uccont_cnt AS uccont_cnt,
+    s.ucmovein_d AS ucmovein_d,
+    s.ucmoveoutd AS ucmoveoutd,
+    s.ucportion AS ucportion,
+    s.unit AS unit,
+    s.var_vr AS var_vr,
+    s.zucbildoc AS zucbildoc,
+    s.zuccusseg AS zuccusseg,
+    s.zucdocinv AS zucdocinv,
+    s.zucreckey AS zucreckey,
+    s.uc_datefro AS uc_datefro,
+    s.uc_dateto AS uc_dateto,
+    s.calmonth AS calmonth,
+    s.zz_fraction AS zz_fraction,
+    s.zuccaleg2 AS zuccaleg2,
+    s.zgasqty AS zgasqty,
+    s.zgaslqty AS zgaslqty,
+    s.zgas_uom AS zgas_uom,
+    s.zgasl_uom AS zgasl_uom,
+    s.zgasamt AS zgasamt,
+    s.zedmqty AS zedmqty,
+    s.zedmamt AS zedmamt
+  FROM source_base s
+  WHERE s.comp_code IN ('7003','7006','7007')
+),
+non_gas_rows AS (
+  SELECT
+    s.bpartner AS bpartner,
+    s.bus_area AS bus_area,
+    s.cacont_acc AS cacont_acc,
+    s.comp_code AS comp_code,
+    s.costcenter AS costcenter,
+    s.country AS country,
+    s.currency AS currency,
+    s.datefrom AS datefrom,
+    s.dateto AS dateto,
+    s.division AS division,
+    CAST(s.pstng_date AS STRING) AS pstng_date,
+    s.region AS region,
+    s.uccntrcnt AS uccntrcnt,
+    s.uccont_cnt AS uccont_cnt,
+    s.ucmovein_d AS ucmovein_d,
+    s.ucmoveoutd AS ucmoveoutd,
+    s.ucportion AS ucportion,
+    s.unit AS unit,
+    s.var_vr AS var_vr,
+    s.zucbildoc AS zucbildoc,
+    s.zuccusseg AS zuccusseg,
+    s.zucdocinv AS zucdocinv,
+    s.zucreckey AS zucreckey,
+    s.uc_datefro AS uc_datefro,
+    s.uc_dateto AS uc_dateto,
+    s.calmonth AS calmonth,
+    s.zz_fraction AS zz_fraction,
+    s.zuccaleg2 AS zuccaleg2,
+    s.zgasqty AS zgasqty,
+    s.zgaslqty AS zgaslqty,
+    s.zgas_uom AS zgas_uom,
+    s.zgasl_uom AS zgasl_uom,
+    s.zgasamt AS zgasamt,
+    s.zedmqty AS zedmqty,
+    s.zedmamt AS zedmamt
+  FROM source_base s
+  WHERE s.comp_code NOT IN ('7003','7006','7007')
+    AND s.division <> '20'
+),
+gas_same_month AS (
+  SELECT
+    s.bpartner AS bpartner,
+    s.bus_area AS bus_area,
+    s.cacont_acc AS cacont_acc,
+    s.comp_code AS comp_code,
+    s.costcenter AS costcenter,
+    s.country AS country,
+    s.currency AS currency,
+    s.datefrom AS datefrom,
+    s.dateto AS dateto,
+    s.division AS division,
+    CAST(s.pstng_date AS STRING) AS pstng_date,
+    s.region AS region,
+    s.uccntrcnt AS uccntrcnt,
+    s.uccont_cnt AS uccont_cnt,
+    s.ucmovein_d AS ucmovein_d,
+    s.ucmoveoutd AS ucmoveoutd,
+    s.ucportion AS ucportion,
+    s.unit AS unit,
+    s.var_vr AS var_vr,
+    s.zucbildoc AS zucbildoc,
+    s.zuccusseg AS zuccusseg,
+    s.zucdocinv AS zucdocinv,
+    s.zucreckey AS zucreckey,
+    s.uc_datefro AS uc_datefro,
+    s.uc_dateto AS uc_dateto,
+    s.calmonth AS calmonth,
+    s.zz_fraction AS zz_fraction,
+    s.zuccaleg2 AS zuccaleg2,
+    s.zgasqty AS zgasqty,
+    s.zgaslqty AS zgaslqty,
+    s.zgas_uom AS zgas_uom,
+    s.zgasl_uom AS zgasl_uom,
+    s.zgasamt AS zgasamt,
+    s.zedmqty AS zedmqty,
+    s.zedmamt AS zedmamt
+  FROM source_base s
+  WHERE s.comp_code NOT IN ('7003','7006','7007')
+    AND s.division = '20'
+    AND SUBSTR(CAST(s.uc_datefro AS STRING), 1, 6) = SUBSTR(CAST(s.uc_dateto AS STRING), 1, 6)
+),
+gas_multi_month AS (
+  SELECT
+    s.bpartner AS bpartner,
+    s.bus_area AS bus_area,
+    s.cacont_acc AS cacont_acc,
+    s.comp_code AS comp_code,
+    s.costcenter AS costcenter,
+    s.country AS country,
+    s.currency AS currency,
+    s.datefrom AS datefrom,
+    s.dateto AS dateto,
+    s.division AS division,
+    CAST(s.pstng_date AS STRING) AS pstng_date,
+    s.region AS region,
+    s.uccntrcnt AS uccntrcnt,
+    s.uccont_cnt AS uccont_cnt,
+    s.ucmovein_d AS ucmovein_d,
+    s.ucmoveoutd AS ucmoveoutd,
+    s.ucportion AS ucportion,
+    s.unit AS unit,
+    s.var_vr AS var_vr,
+    s.zucbildoc AS zucbildoc,
+    s.zuccusseg AS zuccusseg,
+    s.zucdocinv AS zucdocinv,
+    s.zucreckey AS zucreckey,
+    s.uc_datefro AS uc_datefro,
+    s.uc_dateto AS uc_dateto,
+    s.calmonth AS calmonth,
+    s.zz_fraction AS zz_fraction,
+    s.zuccaleg2 AS zuccaleg2,
+    s.zgasqty AS zgasqty,
+    s.zgaslqty AS zgaslqty,
+    s.zgas_uom AS zgas_uom,
+    s.zgasl_uom AS zgasl_uom,
+    s.zgasamt AS zgasamt,
+    s.zedmqty AS zedmqty,
+    s.zedmamt AS zedmamt
+  FROM source_base s
+  WHERE s.comp_code NOT IN ('7003','7006','7007')
+    AND s.division = '20'
+    AND SUBSTR(CAST(s.uc_datefro AS STRING), 1, 6) <> SUBSTR(CAST(s.uc_dateto AS STRING), 1, 6)
+),
+all_rows AS (
+  SELECT * FROM bukrs_special
+  UNION ALL
+  SELECT * FROM non_gas_rows
+  UNION ALL
+  SELECT * FROM gas_same_month
+  UNION ALL
+  SELECT * FROM gas_multi_month
+)
+SELECT
+  r.bpartner AS bpartner,
+  r.bus_area AS bus_area,
+  r.cacont_acc AS cacont_acc,
+  r.comp_code AS comp_code,
+  r.costcenter AS costcenter,
+  r.country AS country,
+  r.currency AS currency,
+  r.datefrom AS datefrom,
+  r.dateto AS dateto,
+  r.division AS division,
+  r.pstng_date AS pstng_date,
+  r.region AS region,
+  r.uccntrcnt AS uccntrcnt,
+  r.uccont_cnt AS uccont_cnt,
+  r.ucmovein_d AS ucmovein_d,
+  r.ucmoveoutd AS ucmoveoutd,
+  r.ucportion AS ucportion,
+  r.unit AS unit,
+  r.var_vr AS var_vr,
+  r.zucbildoc AS zucbildoc,
+  r.zuccusseg AS zuccusseg,
+  r.zucdocinv AS zucdocinv,
+  r.zucreckey AS zucreckey,
+  r.uc_datefro AS uc_datefro,
+  r.uc_dateto AS uc_dateto,
+  r.calmonth AS calmonth,
+  r.zz_fraction AS zz_fraction,
+  r.zuccaleg2 AS zuccaleg2,
+  r.zgasqty AS zgasqty,
+  r.zgaslqty AS zgaslqty,
+  r.zgas_uom AS zgas_uom,
+  r.zgasl_uom AS zgasl_uom,
+  r.zgasamt AS zgasamt,
+  r.zedmqty AS zedmqty,
+  r.zedmamt AS zedmamt
+FROM all_rows r

@@ -1,0 +1,606 @@
+config {
+  type: "table",
+  schema: "sales_curated_poc",
+  name: "",
+  description: "SAP BW Migration | Transformation: nan | Source:  | Generated: 2026-03-11 11:16:16",
+  tags: ["bw_migration"]
+}
+
+-- ===========================================================================
+-- SAP BW → BigQuery Migration (Dataform SQLX)
+-- Step         : 2
+-- Transformation: nan
+-- Source        : `sapanalytics-309913.sales_cdc_poc.`
+-- Target        : `sapanalytics-309913.sales_curated_poc.`
+-- Load Type     : FullLoad
+-- Generated     : 2026-03-11 11:16:16
+-- ===========================================================================
+
+WITH source_base AS (
+  SELECT *
+  FROM `sapanalytics-309913.sales_cdc_poc.`
+),
+bukrs_special AS (
+  SELECT
+    s.mandt,
+    s.bukrs,
+    s.belnr,
+    s.gjahr,
+    s.buzei,
+    s.budat,
+    s.bldat,
+    s.sparte,
+    s.kunnr,
+    s.vkorg,
+    s.vtweg,
+    s.spart,
+    s.vkbur,
+    s.vkgrp,
+    s.matnr,
+    s.werks,
+    s.lgort,
+    s.mwskz,
+    s.dmbtr,
+    s.wrbtr,
+    s.pswbt,
+    s.pswsl,
+    s.waers,
+    s.hkont,
+    s.kostl,
+    s.aufnr,
+    s.prctr,
+    s.segment,
+    s.projn,
+    s.fkart,
+    s.fktyp,
+    s.vbeln,
+    s.posnr,
+    s.aubel,
+    s.aupos,
+    s.stgrqnt,
+    s.buchrel,
+    s.begabrpe,
+    s.endabrpe,
+    s.ableinh,
+    s.zztariff,
+    s.zzrate,
+    s.brandcode,
+    s.edc,
+    s.statprov,
+    s.custtype,
+    s.prodtype,
+    CASE
+      WHEN s.stgrqnt = 'X' THEN CAST(0 AS NUMERIC)
+      ELSE CAST(s.edm_qty AS NUMERIC)
+    END AS edm_qty,
+    CASE
+      WHEN s.buchrel = 'X' THEN CAST(0 AS NUMERIC)
+      ELSE CAST(s.edm_amt AS NUMERIC)
+    END AS edm_amt,
+    s.fma_type,
+    s.vbrmonat,
+    s.zzcalday,
+    s.zzperiod,
+    'bukrs_special' AS _bucket
+  FROM source_base s
+  WHERE s.bukrs IN ('7003', '7006', '7007')
+),
+non_gas_rows AS (
+  SELECT
+    s.mandt,
+    s.bukrs,
+    s.belnr,
+    s.gjahr,
+    s.buzei,
+    s.budat,
+    s.bldat,
+    s.sparte,
+    s.kunnr,
+    s.vkorg,
+    s.vtweg,
+    s.spart,
+    s.vkbur,
+    s.vkgrp,
+    s.matnr,
+    s.werks,
+    s.lgort,
+    s.mwskz,
+    s.dmbtr,
+    s.wrbtr,
+    s.pswbt,
+    s.pswsl,
+    s.waers,
+    s.hkont,
+    s.kostl,
+    s.aufnr,
+    s.prctr,
+    s.segment,
+    s.projn,
+    s.fkart,
+    s.fktyp,
+    s.vbeln,
+    s.posnr,
+    s.aubel,
+    s.aupos,
+    s.stgrqnt,
+    s.buchrel,
+    s.begabrpe,
+    s.endabrpe,
+    s.ableinh,
+    s.zztariff,
+    s.zzrate,
+    s.brandcode,
+    s.edc,
+    s.statprov,
+    s.custtype,
+    s.prodtype,
+    CAST(s.edm_qty AS NUMERIC) AS edm_qty,
+    CAST(s.edm_amt AS NUMERIC) AS edm_amt,
+    s.fma_type,
+    s.vbrmonat,
+    s.zzcalday,
+    s.zzperiod,
+    'non_gas_rows' AS _bucket
+  FROM source_base s
+  WHERE s.bukrs NOT IN ('7003', '7006', '7007')
+    AND s.sparte <> '20'
+),
+gas_same_month AS (
+  SELECT
+    s.mandt,
+    s.bukrs,
+    s.belnr,
+    s.gjahr,
+    s.buzei,
+    s.budat,
+    s.bldat,
+    s.sparte,
+    s.kunnr,
+    s.vkorg,
+    s.vtweg,
+    s.spart,
+    s.vkbur,
+    s.vkgrp,
+    s.matnr,
+    s.werks,
+    s.lgort,
+    s.mwskz,
+    s.dmbtr,
+    s.wrbtr,
+    s.pswbt,
+    s.pswsl,
+    s.waers,
+    s.hkont,
+    s.kostl,
+    s.aufnr,
+    s.prctr,
+    s.segment,
+    s.projn,
+    s.fkart,
+    s.fktyp,
+    s.vbeln,
+    s.posnr,
+    s.aubel,
+    s.aupos,
+    s.stgrqnt,
+    s.buchrel,
+    s.begabrpe,
+    s.endabrpe,
+    s.ableinh,
+    s.zztariff,
+    s.zzrate,
+    s.brandcode,
+    s.edc,
+    s.statprov,
+    s.custtype,
+    s.prodtype,
+    CAST(s.edm_qty AS NUMERIC) AS edm_qty,
+    CAST(s.edm_amt AS NUMERIC) AS edm_amt,
+    'NA' AS fma_type,
+    SUBSTR(s.begabrpe, 1, 6) AS vbrmonat,
+    s.zzcalday,
+    s.zzperiod,
+    'gas_same_month' AS _bucket
+  FROM source_base s
+  WHERE s.bukrs NOT IN ('7003', '7006', '7007')
+    AND s.sparte = '20'
+    AND SUBSTR(s.begabrpe, 1, 6) = SUBSTR(s.endabrpe, 1, 6)
+),
+gas_multi_source AS (
+  SELECT
+    s.mandt,
+    s.bukrs,
+    s.belnr,
+    s.gjahr,
+    s.buzei,
+    s.budat,
+    s.bldat,
+    s.sparte,
+    s.kunnr,
+    s.vkorg,
+    s.vtweg,
+    s.spart,
+    s.vkbur,
+    s.vkgrp,
+    s.matnr,
+    s.werks,
+    s.lgort,
+    s.mwskz,
+    s.dmbtr,
+    s.wrbtr,
+    s.pswbt,
+    s.pswsl,
+    s.waers,
+    s.hkont,
+    s.kostl,
+    s.aufnr,
+    s.prctr,
+    s.segment,
+    s.projn,
+    s.fkart,
+    s.fktyp,
+    s.vbeln,
+    s.posnr,
+    s.aubel,
+    s.aupos,
+    s.stgrqnt,
+    s.buchrel,
+    s.begabrpe,
+    s.endabrpe,
+    s.ableinh,
+    s.zztariff,
+    s.zzrate,
+    s.brandcode,
+    s.edc,
+    s.statprov,
+    s.custtype,
+    s.prodtype,
+    CAST(s.edm_qty AS NUMERIC) AS edm_qty,
+    CAST(s.edm_amt AS NUMERIC) AS edm_amt,
+    s.fma_type,
+    s.vbrmonat,
+    s.zzcalday,
+    s.zzperiod,
+    PARSE_DATE('%Y%m%d', s.begabrpe) AS beg_date,
+    PARSE_DATE('%Y%m%d', s.endabrpe) AS end_date
+  FROM source_base s
+  WHERE s.bukrs NOT IN ('7003', '7006', '7007')
+    AND s.sparte = '20'
+    AND SUBSTR(s.begabrpe, 1, 6) <> SUBSTR(s.endabrpe, 1, 6)
+),
+gas_multi_day_spine AS (
+  SELECT
+    g.*,
+    d AS spine_date,
+    FORMAT_DATE('%Y%m', d) AS spine_yyyymm
+  FROM gas_multi_source g
+  CROSS JOIN UNNEST(GENERATE_DATE_ARRAY(
+    PARSE_DATE('%Y%m%d', g.begabrpe),
+    PARSE_DATE('%Y%m%d', g.endabrpe),
+    INTERVAL 1 DAY
+  )) AS d
+),
+gas_multi_total_days AS (
+  SELECT
+    mandt, bukrs, belnr, gjahr, buzei,
+    COUNT(*) AS total_days
+  FROM gas_multi_day_spine
+  GROUP BY mandt, bukrs, belnr, gjahr, buzei
+),
+gas_multi_backcast_primary AS (
+  SELECT
+    sp.mandt,
+    sp.bukrs,
+    sp.belnr,
+    sp.gjahr,
+    sp.buzei,
+    sp.spine_date,
+    sp.spine_yyyymm,
+    bc.qty AS bc_qty
+  FROM gas_multi_day_spine sp
+  LEFT JOIN `sapanalytics-309913.sales_cdc_poc.fact_mdrp_gas_acctg` bc
+    ON bc.brandcode = sp.brandcode
+    AND bc.edc = sp.edc
+    AND bc.statprov = sp.statprov
+    AND bc.custtype = sp.custtype
+    AND bc.prodtype = sp.prodtype
+    AND bc.calday = FORMAT_DATE('%Y%m%d', sp.spine_date)
+),
+gas_multi_backcast_fallback AS (
+  SELECT
+    sp.mandt,
+    sp.bukrs,
+    sp.belnr,
+    sp.gjahr,
+    sp.buzei,
+    sp.spine_date,
+    sp.spine_yyyymm,
+    bc.qty AS bc_qty_fallback
+  FROM gas_multi_day_spine sp
+  LEFT JOIN `sapanalytics-309913.sales_cdc_poc.fact_mdrp_gas_acctg` bc
+    ON bc.brandcode = sp.brandcode
+    AND bc.edc = sp.edc
+    AND bc.statprov = sp.statprov
+    AND bc.custtype = sp.prodtype
+    AND bc.prodtype = sp.custtype
+    AND bc.calday = FORMAT_DATE('%Y%m%d', sp.spine_date)
+),
+gas_multi_backcast_combined AS (
+  SELECT
+    p.mandt,
+    p.bukrs,
+    p.belnr,
+    p.gjahr,
+    p.buzei,
+    p.spine_date,
+    p.spine_yyyymm,
+    COALESCE(p.bc_qty, f.bc_qty_fallback) AS bc_qty
+  FROM gas_multi_backcast_primary p
+  LEFT JOIN gas_multi_backcast_fallback f
+    ON f.mandt = p.mandt
+    AND f.bukrs = p.bukrs
+    AND f.belnr = p.belnr
+    AND f.gjahr = p.gjahr
+    AND f.buzei = p.buzei
+    AND f.spine_date = p.spine_date
+),
+gas_multi_quality AS (
+  SELECT
+    mandt, bukrs, belnr, gjahr, buzei,
+    COUNT(*) AS total_days,
+    COUNTIF(bc_qty IS NOT NULL AND bc_qty <> 0) AS matched_days,
+    SUM(COALESCE(bc_qty, 0)) AS total_usage
+  FROM gas_multi_backcast_combined
+  GROUP BY mandt, bukrs, belnr, gjahr, buzei
+),
+gas_multi_month_usage AS (
+  SELECT
+    mandt, bukrs, belnr, gjahr, buzei,
+    spine_yyyymm,
+    SUM(COALESCE(bc_qty, 0)) AS month_qty,
+    COUNT(*) AS comp_days
+  FROM gas_multi_backcast_combined
+  GROUP BY mandt, bukrs, belnr, gjahr, buzei, spine_yyyymm
+),
+gas_multi_fractions AS (
+  SELECT
+    mu.mandt,
+    mu.bukrs,
+    mu.belnr,
+    mu.gjahr,
+    mu.buzei,
+    mu.spine_yyyymm,
+    mu.month_qty,
+    mu.comp_days,
+    q.total_days,
+    q.matched_days,
+    q.total_usage,
+    CASE
+      WHEN (q.total_days - q.matched_days) > (q.total_days * 0.1)
+        THEN SAFE_DIVIDE(CAST(mu.comp_days AS NUMERIC), CAST(q.total_days AS NUMERIC))
+      ELSE SAFE_DIVIDE(CAST(mu.month_qty AS NUMERIC), CAST(q.total_usage AS NUMERIC))
+    END AS fraction
+  FROM gas_multi_month_usage mu
+  JOIN gas_multi_quality q
+    ON q.mandt = mu.mandt
+    AND q.bukrs = mu.bukrs
+    AND q.belnr = mu.belnr
+    AND q.gjahr = mu.gjahr
+    AND q.buzei = mu.buzei
+),
+gas_multi_months_ordered AS (
+  SELECT
+    f.*,
+    ROW_NUMBER() OVER (
+      PARTITION BY f.mandt, f.bukrs, f.belnr, f.gjahr, f.buzei
+      ORDER BY f.spine_yyyymm
+    ) AS rn,
+    COUNT(*) OVER (
+      PARTITION BY f.mandt, f.bukrs, f.belnr, f.gjahr, f.buzei
+    ) AS total_months
+  FROM gas_multi_fractions f
+),
+gas_multi_allocated AS (
+  SELECT
+    mo.mandt,
+    mo.bukrs,
+    mo.belnr,
+    mo.gjahr,
+    mo.buzei,
+    mo.spine_yyyymm,
+    mo.fraction,
+    mo.rn,
+    mo.total_months,
+    src.edm_qty,
+    src.edm_amt,
+    CASE
+      WHEN mo.rn = mo.total_months
+        THEN src.edm_qty - SUM(ROUND(src.edm_qty * mo.fraction, 6)) OVER (
+          PARTITION BY mo.mandt, mo.bukrs, mo.belnr, mo.gjahr, mo.buzei
+          ORDER BY mo.rn
+          ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+        )
+      ELSE ROUND(src.edm_qty * mo.fraction, 6)
+    END AS alloc_qty,
+    CASE
+      WHEN mo.rn = mo.total_months
+        THEN src.edm_amt - SUM(ROUND(src.edm_amt * mo.fraction, 6)) OVER (
+          PARTITION BY mo.mandt, mo.bukrs, mo.belnr, mo.gjahr, mo.buzei
+          ORDER BY mo.rn
+          ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+        )
+      ELSE ROUND(src.edm_amt * mo.fraction, 6)
+    END AS alloc_amt
+  FROM gas_multi_months_ordered mo
+  JOIN gas_multi_source src
+    ON src.mandt = mo.mandt
+    AND src.bukrs = mo.bukrs
+    AND src.belnr = mo.belnr
+    AND src.gjahr = mo.gjahr
+    AND src.buzei = mo.buzei
+),
+gas_multi_month AS (
+  SELECT
+    src.mandt,
+    src.bukrs,
+    src.belnr,
+    src.gjahr,
+    src.buzei,
+    src.budat,
+    src.bldat,
+    src.sparte,
+    src.kunnr,
+    src.vkorg,
+    src.vtweg,
+    src.spart,
+    src.vkbur,
+    src.vkgrp,
+    src.matnr,
+    src.werks,
+    src.lgort,
+    src.mwskz,
+    src.dmbtr,
+    src.wrbtr,
+    src.pswbt,
+    src.pswsl,
+    src.waers,
+    src.hkont,
+    src.kostl,
+    src.aufnr,
+    src.prctr,
+    src.segment,
+    src.projn,
+    src.fkart,
+    src.fktyp,
+    src.vbeln,
+    src.posnr,
+    src.aubel,
+    src.aupos,
+    src.stgrqnt,
+    src.buchrel,
+    src.begabrpe,
+    src.endabrpe,
+    src.ableinh,
+    src.zztariff,
+    src.zzrate,
+    src.brandcode,
+    src.edc,
+    src.statprov,
+    src.custtype,
+    src.prodtype,
+    al.alloc_qty AS edm_qty,
+    al.alloc_amt AS edm_amt,
+    CASE
+      WHEN al.fraction IS NULL OR al.fraction = 0 THEN 'NA'
+      ELSE 'BC'
+    END AS fma_type,
+    al.spine_yyyymm AS vbrmonat,
+    src.zzcalday,
+    src.zzperiod,
+    'gas_multi_month' AS _bucket
+  FROM gas_multi_source src
+  JOIN gas_multi_allocated al
+    ON al.mandt = src.mandt
+    AND al.bukrs = src.bukrs
+    AND al.belnr = src.belnr
+    AND al.gjahr = src.gjahr
+    AND al.buzei = src.buzei
+),
+all_rows AS (
+  SELECT
+    mandt, bukrs, belnr, gjahr, buzei, budat, bldat, sparte, kunnr,
+    vkorg, vtweg, spart, vkbur, vkgrp, matnr, werks, lgort, mwskz,
+    dmbtr, wrbtr, pswbt, pswsl, waers, hkont, kostl, aufnr, prctr,
+    segment, projn, fkart, fktyp, vbeln, posnr, aubel, aupos,
+    stgrqnt, buchrel, begabrpe, endabrpe, ableinh, zztariff, zzrate,
+    brandcode, edc, statprov, custtype, prodtype,
+    edm_qty, edm_amt, fma_type, vbrmonat, zzcalday, zzperiod, _bucket
+  FROM bukrs_special
+  UNION ALL
+  SELECT
+    mandt, bukrs, belnr, gjahr, buzei, budat, bldat, sparte, kunnr,
+    vkorg, vtweg, spart, vkbur, vkgrp, matnr, werks, lgort, mwskz,
+    dmbtr, wrbtr, pswbt, pswsl, waers, hkont, kostl, aufnr, prctr,
+    segment, projn, fkart, fktyp, vbeln, posnr, aubel, aupos,
+    stgrqnt, buchrel, begabrpe, endabrpe, ableinh, zztariff, zzrate,
+    brandcode, edc, statprov, custtype, prodtype,
+    edm_qty, edm_amt, fma_type, vbrmonat, zzcalday, zzperiod, _bucket
+  FROM non_gas_rows
+  UNION ALL
+  SELECT
+    mandt, bukrs, belnr, gjahr, buzei, budat, bldat, sparte, kunnr,
+    vkorg, vtweg, spart, vkbur, vkgrp, matnr, werks, lgort, mwskz,
+    dmbtr, wrbtr, pswbt, pswsl, waers, hkont, kostl, aufnr, prctr,
+    segment, projn, fkart, fktyp, vbeln, posnr, aubel, aupos,
+    stgrqnt, buchrel, begabrpe, endabrpe, ableinh, zztariff, zzrate,
+    brandcode, edc, statprov, custtype, prodtype,
+    edm_qty, edm_amt, fma_type, vbrmonat, zzcalday, zzperiod, _bucket
+  FROM gas_same_month
+  UNION ALL
+  SELECT
+    mandt, bukrs, belnr, gjahr, buzei, budat, bldat, sparte, kunnr,
+    vkorg, vtweg, spart, vkbur, vkgrp, matnr, werks, lgort, mwskz,
+    dmbtr, wrbtr, pswbt, pswsl, waers, hkont, kostl, aufnr, prctr,
+    segment, projn, fkart, fktyp, vbeln, posnr, aubel, aupos,
+    stgrqnt, buchrel, begabrpe, endabrpe, ableinh, zztariff, zzrate,
+    brandcode, edc, statprov, custtype, prodtype,
+    edm_qty, edm_amt, fma_type, vbrmonat, zzcalday, zzperiod, _bucket
+  FROM gas_multi_month
+)
+SELECT
+  r.mandt,
+  r.bukrs,
+  r.belnr,
+  r.gjahr,
+  r.buzei,
+  CAST(r.budat AS STRING) AS pstng_date,
+  r.bldat,
+  r.sparte,
+  r.kunnr,
+  r.vkorg,
+  r.vtweg,
+  r.spart,
+  r.vkbur,
+  r.vkgrp,
+  r.matnr,
+  r.werks,
+  r.lgort,
+  r.mwskz,
+  CAST(r.dmbtr AS NUMERIC) AS dmbtr,
+  CAST(r.wrbtr AS NUMERIC) AS wrbtr,
+  CAST(r.pswbt AS NUMERIC) AS pswbt,
+  r.pswsl,
+  r.waers,
+  r.hkont,
+  r.kostl,
+  r.aufnr,
+  r.prctr,
+  r.segment,
+  r.projn,
+  r.fkart,
+  r.fktyp,
+  r.vbeln,
+  r.posnr,
+  r.aubel,
+  r.aupos,
+  r.stgrqnt,
+  r.buchrel,
+  r.begabrpe,
+  r.endabrpe,
+  r.ableinh,
+  r.zztariff,
+  r.zzrate,
+  r.brandcode,
+  r.edc,
+  r.statprov,
+  r.custtype,
+  r.prodtype,
+  CAST(r.edm_qty AS NUMERIC) AS edm_qty,
+  CAST(r.edm_amt AS NUMERIC) AS edm_amt,
+  r.fma_type,
+  r.vbrmonat,
+  r.zzcalday,
+  r.zzperiod,
+  CAST(NULL AS NUMERIC) AS edm_qty_thm,
+  CAST(NULL AS STRING) AS bic_zuccaleg2
+FROM all_rows r
