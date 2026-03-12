@@ -1,5 +1,6 @@
 config {
     type: "incremental", 
+    uniqueKey : ["bpartner"],
     //if type incremental is withouth uniquekey then it will simply insert the data, if we have a uniquekey defined, then it will act as merge -- add new data and updaed old data on key.
     // schema: "sales_poc_dev",
     name: "t_sales_stats",
