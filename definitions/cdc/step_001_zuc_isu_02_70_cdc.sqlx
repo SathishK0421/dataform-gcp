@@ -1,0 +1,982 @@
+config {
+    type: "table",
+    schema: "sales_curated_poc",
+    name: "zuc_isu_02_70",
+    description: "SAP BW Migration | Transformation: 0R1JXIJEQ3760VDO5BJ05NQH5THVBXQ1 | Source: 0uc_sales_stats_02_rpm_900 | Generated: 2026-03-11 11:16:16",
+    tags: ["bw_migration"],
+    dependencies: ["bw_fm_z_b_flowmonth_xoom"]
+
+}
+
+  -- ===========================================================================
+  -- SAP BW → BigQuery Migration (Dataform SQLX)
+  -- Step         : 1
+  -- Transformation: 0R1JXIJEQ3760VDO5BJ05NQH5THVBXQ1
+  -- Source        : `sapanalytics-309913.sales_cdc_poc.0uc_sales_stats_02_rpm_900`
+  -- Target        : `sapanalytics-309913.sales_curated_poc.zuc_isu_02_70`
+  -- Load Type     : FullLoad
+  -- Generated     : 2026-03-11 11:16:16
+  -- ===========================================================================
+WITH
+  utility_map AS (
+  SELECT
+    division,
+    utility,
+    state,
+    backcast_utility
+  FROM
+    ${ref("ZBT_UTIL_MAPPING")}
+  WHERE
+    SOURCE = 'CCS' ),
+  source_base AS (
+  SELECT
+    *
+  FROM
+    ${ref("UC_SALES_STATS_02_RPM_900_CDC")} ),
+  -- ============================================================
+  -- BUCKET 1: bukrs IN ('7003','7006','7007')
+  -- ============================================================
+  bukrs_special AS (
+SELECT
+  s.mwskz AS bbp_taxcod,
+  s.gpartner AS bpartner,
+  s.gsber AS bus_area,
+  s.applk AS caapplk,
+  s.vkont AS cacont_acc,
+  s.hvorg AS camntrans,
+  s.tvorg AS casubtrans,
+  s.cityp_code AS cityp_code,
+  s.country AS country,
+  s.city_code AS city_code,
+  s.bukrs AS comp_code,
+  s.kostl AS costcenter,
+  s.waers AS currency,
+  s.kokrs AS co_area,
+  s.ab AS datefrom,
+  s.bis AS dateto,
+  s.ktoklasse AS ucacc_clas,
+  s.sparte AS division,
+  s.stprz AS fc_taxrate,
+  s.branche AS ind_code,
+  s.txjcd AS me_txjcd,
+  CAST(s.budat AS STRING) AS pstng_date,
+  s.region AS region,
+  s.streetcode AS street_cod,
+  CAST(s.anztage AS DECIMAL) AS uccont_cnt,
+  s.artmenge AS ucamt_type,
+  s.aklasse AS ucbill_cla,
+  CAST(s.anzvertr AS DECIMAL) AS uccntrcnt,
+  s.konzigr AS ucfranchgr,
+  s.diffkz AS ucdisc_ind,
+  s.konzver AS ucfrancntr,
+  s.fran_type AS ucfran_cat,
+  s.zzhkont AS bic_zucglacct,
+  s.anlart AS ucinst_ty,
+  s.zz_einzdat AS ucmovein_d,
+  s.zz_auszdat AS ucmoveoutd,
+  s.eigenverbr AS ucowncons,
+  s.drckstuf AS ucpreslevl,
+  CAST(s.menge AS DECIMAL) AS ucquant,
+  s.kondigr AS ucratefakt,
+  CAST(s.betrag AS DECIMAL) AS var_vr,
+  s.spebene AS ucvoltlevl,
+  s.buchrel AS uc_postrel,
+  s.massbill AS unit,
+  -- bic_zedmamt: if buchrel='X' then betrag else 0
+  CAST(
+  CASE
+    WHEN s.buchrel = 'X' THEN s.betrag
+    ELSE 0
+END
+  AS DECIMAL) AS bic_zedmamt,
+  s.zz_uebud_ind AS bic_zaltpstin,
+  -- bic_zedmqty: if stgrqnt='RQENGY' AND massbill='GJ' then menge else original
+  CAST(
+  CASE
+    WHEN s.stgrqnt = 'RQENGY' AND s.massbill = 'GJ' THEN s.menge
+    ELSE s.zz_edm_qty
+END
+  AS DECIMAL) AS bic_zedmqty,
+  s.zzfi_budat AS bic_zfipstdat,
+  s.zz_mtr_type AS bic_zucmtrtyp,
+  s.belnr AS bic_zucbildoc,
+  s.vertrag AS bic_zuccontra,
+  s.zzsegment AS bic_zuccusseg,
+  s.zzcust_type AS bic_zuccustyp,
+  s.zz_opbel AS bic_zucdocinv,
+  s.zzendabrpe AS bic_zucebilpc,
+  s.zz_edm_flg AS bic_zucfmalty,
+  s.fikey AS bic_zucreckey,
+  s.zz_grt_pct AS bic_zucgrtrat,
+  s.anlage AS bic_zucinstal,
+  s.belzart AS bic_zuclinety,
+  s.zzbegabrpe AS bic_zucsbilpc,
+  s.prctr AS bic_zucprctr,
+  s.xcanc AS bic_zucxcanc,
+  s.zz_tbpstart AS bic_zuctdatfr,
+  s.zzg_brand AS bic_zbrandcde,
+  s.zzpl_group AS bic_zplgroup,
+  TRIM(s.zzgeraet) AS bic_zucserial,
+  TRIM(s.zzext_ui) AS bic_zucesid,
+  s.zz_congstzone AS bic_zuccongzn,
+  s.zz_energyprc_chr AS bic_zengyprcc,
+  s.zz_zieagt AS bic_zucagtid,
+  s.zz_ziecst AS bic_zuccstid,
+  s.zz_rtflg AS bic_zucrt_ind,
+  s.zzerch_begabrpe AS uc_datefro,
+  s.zzerch_endabrpe AS uc_dateto,
+  s.zzprod_type AS bic_zucprdtyp,
+  s.zz_ein01 AS bic_zucoprnd1,
+  s.zzg_utility AS bic_x_rmutlcd,
+  s.zzg_prod_type AS bic_x_prdterm,
+  s.zzg_segment AS bic_zcustypcd,
+  s.zzfaedn AS bic_zucduedt,
+  s.zzorf_type AS bic_zofrtype,
+  s.kofiz AS ucactdetid,
+  s.zzkofiz_sd AS bic_zactdetid,
+  s.zzne_ind AS bic_zneind,
+  s.vbrmonat AS calmonth,
+  s.ableinh AS ucrate_key,
+  s.abrvorg AS ucrate_cat,
+  s.thgdat AS ucrate_ty,
+  s.bupla AS ucupd_grp,
+  s.belzeile AS ucsgr_qnt,
+  s.zuorddaa AS ucrate_sta,
+  s.abwvk AS profit_ctr,
+  s.tarifnr AS ucserv_id,
+  s.sttarif AS ucregpolit,
+  CAST(s.temp_area AS INT64) AS bic_zedmflg,
+  CAST(s.stgrqnt AS DECIMAL) AS uctax_amt,
+  CAST(s.stgramt AS DECIMAL) AS uctax_base,
+  CAST(s.aufnr AS DECIMAL) AS bic_zgasqty,
+  s.stagruver AS bic_zgas_uom,
+  CAST(s.stafo AS DECIMAL) AS bic_zgasamt,
+  CAST(s.regpolit AS DECIMAL) AS bic_zgaslqty,
+  s.regiogroup AS bic_zgasl_uom,
+  s.serviceid AS bic_zuccaleg2,
+  s.salesdocument AS ucsgr_cont,
+  s.contractclass AS ucsgr_amt,
+  TRIM(REGEXP_REPLACE(s.portion, r'[\x00-\x1F\x7F]', '')) AS ucportion
+FROM
+  source_base s
+WHERE
+  s.bukrs IN ('7003',
+    '7006',
+    '7007') ),
+  -- ============================================================
+  -- BUCKET 2: non-gas, non-special bukrs (sparte <> '20')
+  -- ============================================================
+  non_gas_rows AS (
+SELECT
+  s.mwskz AS bbp_taxcod,
+  s.gpartner AS bpartner,
+  s.gsber AS bus_area,
+  s.applk AS caapplk,
+  s.vkont AS cacont_acc,
+  s.hvorg AS camntrans,
+  s.tvorg AS casubtrans,
+  s.cityp_code AS cityp_code,
+  s.country AS country,
+  s.city_code AS city_code,
+  s.bukrs AS comp_code,
+  s.kostl AS costcenter,
+  s.waers AS currency,
+  s.kokrs AS co_area,
+  s.ab AS datefrom,
+  s.bis AS dateto,
+  s.ktoklasse AS ucacc_clas,
+  s.sparte AS division,
+  s.stprz AS fc_taxrate,
+  s.branche AS ind_code,
+  s.txjcd AS me_txjcd,
+  CAST(s.budat AS STRING) AS pstng_date,
+  s.region AS region,
+  s.streetcode AS street_cod,
+  CAST(s.anztage AS DECIMAL) AS uccont_cnt,
+  s.artmenge AS ucamt_type,
+  s.aklasse AS ucbill_cla,
+  CAST(s.anzvertr AS DECIMAL) AS uccntrcnt,
+  s.konzigr AS ucfranchgr,
+  s.diffkz AS ucdisc_ind,
+  s.konzver AS ucfrancntr,
+  s.fran_type AS ucfran_cat,
+  s.zzhkont AS bic_zucglacct,
+  s.anlart AS ucinst_ty,
+  s.zz_einzdat AS ucmovein_d,
+  s.zz_auszdat AS ucmoveoutd,
+  s.eigenverbr AS ucowncons,
+  s.drckstuf AS ucpreslevl,
+  CAST(s.menge AS DECIMAL) AS ucquant,
+  s.kondigr AS ucratefakt,
+  CAST(s.betrag AS DECIMAL) AS var_vr,
+  s.spebene AS ucvoltlevl,
+  s.buchrel AS uc_postrel,
+  s.massbill AS unit,
+  CAST(s.zz_edm_amt AS DECIMAL) AS bic_zedmamt,
+  s.zz_uebud_ind AS bic_zaltpstin,
+  CAST(s.zz_edm_qty AS DECIMAL) AS bic_zedmqty,
+  s.zzfi_budat AS bic_zfipstdat,
+  s.zz_mtr_type AS bic_zucmtrtyp,
+  s.belnr AS bic_zucbildoc,
+  s.vertrag AS bic_zuccontra,
+  s.zzsegment AS bic_zuccusseg,
+  s.zzcust_type AS bic_zuccustyp,
+  s.zz_opbel AS bic_zucdocinv,
+  s.zzendabrpe AS bic_zucebilpc,
+  s.zz_edm_flg AS bic_zucfmalty,
+  s.fikey AS bic_zucreckey,
+  s.zz_grt_pct AS bic_zucgrtrat,
+  s.anlage AS bic_zucinstal,
+  s.belzart AS bic_zuclinety,
+  s.zzbegabrpe AS bic_zucsbilpc,
+  s.prctr AS bic_zucprctr,
+  s.xcanc AS bic_zucxcanc,
+  s.zz_tbpstart AS bic_zuctdatfr,
+  s.zzg_brand AS bic_zbrandcde,
+  s.zzpl_group AS bic_zplgroup,
+  TRIM(REGEXP_REPLACE(s.zzgeraet, r'[\x00-\x1F\x7F]', '')) AS bic_zucserial,
+  TRIM(REGEXP_REPLACE(s.zzext_ui, r'[\x00-\x1F\x7F]', '')) AS bic_zucesid,
+  s.zz_congstzone AS bic_zuccongzn,
+  s.zz_energyprc_chr AS bic_zengyprcc,
+  s.zz_zieagt AS bic_zucagtid,
+  s.zz_ziecst AS bic_zuccstid,
+  s.zz_rtflg AS bic_zucrt_ind,
+  s.zzerch_begabrpe AS uc_datefro,
+  s.zzerch_endabrpe AS uc_dateto,
+  s.zzprod_type AS bic_zucprdtyp,
+  s.zz_ein01 AS bic_zucoprnd1,
+  s.zzg_utility AS bic_x_rmutlcd,
+  s.zzg_prod_type AS bic_x_prdterm,
+  s.zzg_segment AS bic_zcustypcd,
+  s.zzfaedn AS bic_zucduedt,
+  s.zzorf_type AS bic_zofrtype,
+  s.kofiz AS ucactdetid,
+  s.zzkofiz_sd AS bic_zactdetid,
+  s.zzne_ind AS bic_zneind,
+  s.vbrmonat AS calmonth,
+  s.ableinh AS ucrate_key,
+  s.abrvorg AS ucrate_cat,
+  s.thgdat AS ucrate_ty,
+  s.bupla AS ucupd_grp,
+  s.belzeile AS ucsgr_qnt,
+  s.zuorddaa AS ucrate_sta,
+  s.abwvk AS profit_ctr,
+  s.tarifnr AS ucserv_id,
+  s.sttarif AS ucregpolit,
+  CAST(s.temp_area AS INT64) AS bic_zedmflg,
+  CAST(s.stgrqnt AS DECIMAL) AS uctax_amt,
+  CAST(s.stgramt AS DECIMAL) AS uctax_base,
+  CAST(s.aufnr AS DECIMAL) AS bic_zgasqty,
+  s.stagruver AS bic_zgas_uom,
+  CAST(s.stafo AS DECIMAL) AS bic_zgasamt,
+  CAST(s.regpolit AS DECIMAL) AS bic_zgaslqty,
+  s.regiogroup AS bic_zgasl_uom,
+  s.serviceid AS bic_zuccaleg2,
+  s.salesdocument AS ucsgr_cont,
+  s.contractclass AS ucsgr_amt,
+  TRIM(REGEXP_REPLACE(s.portion, r'[\x00-\x1F\x7F]', '')) AS ucportion
+FROM
+  source_base s
+WHERE
+  s.bukrs NOT IN ('7003',
+    '7006',
+    '7007')
+  AND s.sparte <> '20' ),
+  -- ============================================================
+  -- GAS ROWS BASE: sparte='20', not special bukrs
+  -- with derived brand_code, utility, product_type, customer_type, region
+  -- ============================================================
+  gas_base AS (
+SELECT
+  s.*,
+  -- brand_code
+  CASE
+    WHEN s.zzg_brand = 'NRGHOME' THEN 'NRG-R'
+    WHEN INSTR(s.zzg_brand, 'STM') > 0 THEN 'STR'
+    ELSE s.zzg_brand
+END
+  AS derived_brand_code,
+  -- product_type
+  CASE
+    WHEN INSTR(s.zzg_prod_type, 'VAR') > 0 THEN 'V'
+    ELSE 'F'
+END
+  AS derived_product_type,
+  -- customer_type
+  CASE
+    WHEN INSTR(s.zzg_segment, 'SB') > 0 THEN 'SMALL COMMERCIAL'
+    WHEN INSTR(s.zzg_segment, 'RES') > 0 THEN 'RESIDENTIAL'
+    WHEN INSTR(s.zzg_segment, 'CI') > 0 THEN 'COMMERCIAL'
+    ELSE 'RESIDENTIAL'
+END
+  AS derived_customer_type,
+  -- region
+  CASE
+    WHEN s.region IS NOT NULL AND s.region <> '' THEN s.region
+    ELSE 'XXX'
+END
+  AS derived_region
+FROM
+  source_base s
+WHERE
+  s.bukrs NOT IN ('7003',
+    '7006',
+    '7007')
+  AND s.sparte = '20' ),
+  -- utility lookup: primary (division + utility + state)
+  gas_util_primary AS (
+SELECT
+  g.belnr,
+  g.vbrmonat,
+  um.backcast_utility
+FROM
+  gas_base g
+LEFT JOIN
+  utility_map um
+ON
+  um.division = g.sparte
+  AND um.utility = g.zzg_utility
+  AND um.state = g.region
+WHERE
+  g.zzg_utility IS NOT NULL
+  AND g.zzg_utility <> '' ),
+  -- utility lookup: fallback (division + utility only, no state)
+  gas_util_fallback AS (
+SELECT
+  g.belnr,
+  g.vbrmonat,
+  um.backcast_utility
+FROM
+  gas_base g
+LEFT JOIN
+  utility_map um
+ON
+  um.division = g.sparte
+  AND um.utility = g.zzg_utility
+WHERE
+  g.zzg_utility IS NOT NULL
+  AND g.zzg_utility <> '' ),
+  -- resolved utility per source row
+  gas_utility_resolved AS (
+SELECT
+  g.belnr,
+  g.vbrmonat,
+  CASE
+    WHEN gup.backcast_utility IS NOT NULL THEN gup.backcast_utility
+    WHEN guf.backcast_utility IS NOT NULL THEN guf.backcast_utility
+    ELSE 'XXX'
+END
+  AS resolved_utility
+FROM
+  gas_base g
+LEFT JOIN
+  gas_util_primary gup
+ON
+  gup.belnr = g.belnr
+  AND gup.vbrmonat = g.vbrmonat
+LEFT JOIN
+  gas_util_fallback guf
+ON
+  guf.belnr = g.belnr
+  AND guf.vbrmonat = g.vbrmonat ),
+  -- enrich gas_base with resolved utility
+  gas_enriched AS (
+SELECT
+  g.*,
+  COALESCE(gur.resolved_utility, 'XXX') AS l_utility
+FROM
+  gas_base g
+LEFT JOIN
+  gas_utility_resolved gur
+ON
+  gur.belnr = g.belnr
+  AND gur.vbrmonat = g.vbrmonat ),
+  -- ============================================================
+  -- BUCKET 3: gas same-month (YYYYMM of begabrpe = YYYYMM of endabrpe)
+  -- ============================================================
+  gas_same_month AS (
+SELECT
+  s.mwskz AS bbp_taxcod,
+  s.gpartner AS bpartner,
+  s.gsber AS bus_area,
+  s.applk AS caapplk,
+  s.vkont AS cacont_acc,
+  s.hvorg AS camntrans,
+  s.tvorg AS casubtrans,
+  s.cityp_code AS cityp_code,
+  s.country AS country,
+  s.city_code AS city_code,
+  s.bukrs AS comp_code,
+  s.kostl AS costcenter,
+  s.waers AS currency,
+  s.kokrs AS co_area,
+  s.ab AS datefrom,
+  s.bis AS dateto,
+  s.ktoklasse AS ucacc_clas,
+  s.sparte AS division,
+  s.stprz AS fc_taxrate,
+  s.branche AS ind_code,
+  s.txjcd AS me_txjcd,
+  CAST(s.budat AS STRING) AS pstng_date,
+  s.region AS region,
+  s.streetcode AS street_cod,
+  CAST(s.anztage AS DECIMAL) AS uccont_cnt,
+  s.artmenge AS ucamt_type,
+  s.aklasse AS ucbill_cla,
+  CAST(s.anzvertr AS DECIMAL) AS uccntrcnt,
+  s.konzigr AS ucfranchgr,
+  s.diffkz AS ucdisc_ind,
+  s.konzver AS ucfrancntr,
+  s.fran_type AS ucfran_cat,
+  s.zzhkont AS bic_zucglacct,
+  s.anlart AS ucinst_ty,
+  s.zz_einzdat AS ucmovein_d,
+  s.zz_auszdat AS ucmoveoutd,
+  s.eigenverbr AS ucowncons,
+  s.drckstuf AS ucpreslevl,
+  CAST(s.menge AS DECIMAL) AS ucquant,
+  s.kondigr AS ucratefakt,
+  CAST(s.betrag AS DECIMAL) AS var_vr,
+  s.spebene AS ucvoltlevl,
+  s.buchrel AS uc_postrel,
+  s.massbill AS unit,
+  -- bic_zedmamt: if buchrel='X' then betrag else original zz_edm_amt
+  CAST(
+  CASE
+    WHEN s.buchrel = 'X' THEN s.betrag
+    ELSE s.zz_edm_amt
+END
+  AS DECIMAL) AS bic_zedmamt,
+  s.zz_uebud_ind AS bic_zaltpstin,
+  -- bic_zedmqty: if stgrqnt='RQENGY' AND massbill in gas units then menge
+  CAST(
+  CASE
+    WHEN s.stgrqnt = 'RQENGY' AND s.massbill IN ('THM', 'CCF', 'MCF', 'DTH', 'GJ') THEN s.menge
+    ELSE s.zz_edm_qty
+END
+  AS DECIMAL) AS bic_zedmqty,
+  s.zzfi_budat AS bic_zfipstdat,
+  s.zz_mtr_type AS bic_zucmtrtyp,
+  s.belnr AS bic_zucbildoc,
+  s.vertrag AS bic_zuccontra,
+  s.zzsegment AS bic_zuccusseg,
+  s.zzcust_type AS bic_zuccustyp,
+  s.zz_opbel AS bic_zucdocinv,
+  s.zzendabrpe AS bic_zucebilpc,
+  'NA' AS bic_zucfmalty,
+  s.fikey AS bic_zucreckey,
+  s.zz_grt_pct AS bic_zucgrtrat,
+  s.anlage AS bic_zucinstal,
+  s.belzart AS bic_zuclinety,
+  s.zzbegabrpe AS bic_zucsbilpc,
+  s.prctr AS bic_zucprctr,
+  s.xcanc AS bic_zucxcanc,
+  s.zz_tbpstart AS bic_zuctdatfr,
+  s.zzg_brand AS bic_zbrandcde,
+  s.zzpl_group AS bic_zplgroup,
+  TRIM(REGEXP_REPLACE(s.zzgeraet, r'[\x00-\x1F\x7F]', '')) AS bic_zucserial,
+  TRIM(REGEXP_REPLACE(s.zzext_ui, r'[\x00-\x1F\x7F]', '')) AS bic_zucesid,
+  s.zz_congstzone AS bic_zuccongzn,
+  s.zz_energyprc_chr AS bic_zengyprcc,
+  s.zz_zieagt AS bic_zucagtid,
+  s.zz_ziecst AS bic_zuccstid,
+  s.zz_rtflg AS bic_zucrt_ind,
+  s.zzerch_begabrpe AS uc_datefro,
+  s.zzerch_endabrpe AS uc_dateto,
+  s.zzprod_type AS bic_zucprdtyp,
+  s.zz_ein01 AS bic_zucoprnd1,
+  s.zzg_utility AS bic_x_rmutlcd,
+  s.zzg_prod_type AS bic_x_prdterm,
+  s.zzg_segment AS bic_zcustypcd,
+  s.zzfaedn AS bic_zucduedt,
+  s.zzorf_type AS bic_zofrtype,
+  s.kofiz AS ucactdetid,
+  s.zzkofiz_sd AS bic_zactdetid,
+  s.zzne_ind AS bic_zneind,
+  FORMAT_DATE('%Y%m', s.zzerch_begabrpe) AS calmonth,
+  s.ableinh AS ucrate_key,
+  s.abrvorg AS ucrate_cat,
+  s.thgdat AS ucrate_ty,
+  s.bupla AS ucupd_grp,
+  s.belzeile AS ucsgr_qnt,
+  s.zuorddaa AS ucrate_sta,
+  s.abwvk AS profit_ctr,
+  s.tarifnr AS ucserv_id,
+  s.sttarif AS ucregpolit,
+  CAST(s.temp_area AS INT64) AS bic_zedmflg,
+  CAST(s.stgrqnt AS DECIMAL) AS uctax_amt,
+  CAST(s.stgramt AS DECIMAL) AS uctax_base,
+  CAST(s.aufnr AS DECIMAL) AS bic_zgasqty,
+  s.stagruver AS bic_zgas_uom,
+  CAST(s.stafo AS DECIMAL) AS bic_zgasamt,
+  CAST(s.regpolit AS DECIMAL) AS bic_zgaslqty,
+  s.regiogroup AS bic_zgasl_uom,
+  s.serviceid AS bic_zuccaleg2,
+  s.salesdocument AS ucsgr_cont,
+  s.contractclass AS ucsgr_amt,
+  TRIM(REGEXP_REPLACE(s.portion, r'[\x00-\x1F\x7F]', '')) AS ucportion
+FROM
+  gas_enriched s
+WHERE
+  FORMAT_DATE('%Y%m', s.zzerch_begabrpe) = FORMAT_DATE('%Y%m', s.zzerch_endabrpe) ),
+  -- ============================================================
+  -- BUCKET 4: gas multi-month
+  -- UDF call: bw_fm_z_b_flowmonth_xoom
+  -- ============================================================
+  gas_multi_base AS (
+SELECT
+  *
+FROM
+  gas_enriched
+WHERE
+  FORMAT_DATE('%Y%m', zzerch_begabrpe) <> FORMAT_DATE('%Y%m', zzerch_endabrpe) ),
+  -- Build unique belnr keys for UDF call
+  gas_multi_keys AS (
+SELECT
+  DISTINCT belnr,
+  zzerch_begabrpe,
+  zzerch_endabrpe,
+  sparte,
+  derived_customer_type AS custypcd,
+  derived_product_type AS varfix,
+  derived_brand_code AS brandcode,
+  l_utility AS edc,
+  derived_region AS statprov
+FROM
+  gas_multi_base ),
+  -- Call the pre-built UDF for flowmonth allocation
+  gas_multi_udf AS (
+SELECT
+  k.belnr,
+  k.zzerch_begabrpe,
+  k.zzerch_endabrpe,
+  udf_out.calendar_month,
+  udf_out.fraction,
+  udf_out.fma_type
+FROM
+  gas_multi_keys k
+CROSS JOIN
+  UNNEST( ${ref("bw_fm_z_b_flowmonth_xoom")}( k.edc,
+      k.statprov,
+      k.zzerch_begabrpe,
+      k.zzerch_endabrpe,
+      k.sparte,
+      k.custypcd,
+      k.varfix,
+      k.brandcode ) ) AS udf_out ),
+  -- FIMA: total days in billing period (DATE_DIFF + 1 for inclusive count)
+  -- l_nomonths = months_between + 1
+  -- Month spine per source row
+  gas_multi_month_spine AS (
+SELECT
+  g.*,
+  -- total days (FIMA e_days = DATE_DIFF)
+  DATE_DIFF(g.zzerch_endabrpe, g.zzerch_begabrpe, DAY) AS l_nodays,
+  -- number of months to iterate (FIMA e_months + 1)
+  DATE_DIFF( DATE_TRUNC(g.zzerch_endabrpe, MONTH), DATE_TRUNC(g.zzerch_begabrpe, MONTH), MONTH ) + 1 AS l_nomonths,
+  mon_start
+FROM
+  gas_multi_base g
+CROSS JOIN
+  UNNEST( GENERATE_DATE_ARRAY( DATE_TRUNC(g.zzerch_begabrpe, MONTH), DATE_TRUNC(g.zzerch_endabrpe, MONTH), INTERVAL 1 MONTH ) ) AS mon_start ),
+  -- Per-month computation for each source row
+  gas_multi_expanded AS (
+SELECT
+  ms.*,
+  FORMAT_DATE('%Y%m', ms.mon_start) AS vbrmonat_month,
+  -- l_lastday: if last month then zzerch_endabrpe else last day of that month
+  CASE
+    WHEN FORMAT_DATE('%Y%m', ms.mon_start) = FORMAT_DATE('%Y%m', ms.zzerch_endabrpe) THEN ms.zzerch_endabrpe
+    ELSE DATE_SUB(DATE_ADD(DATE_TRUNC(ms.mon_start, MONTH), INTERVAL 1 MONTH), INTERVAL 1 DAY)
+END
+  AS l_lastday,
+  -- l_currdate (first day of billing within this month)
+  CASE
+    WHEN FORMAT_DATE('%Y%m', ms.mon_start) = FORMAT_DATE('%Y%m', ms.zzerch_begabrpe) THEN ms.zzerch_begabrpe
+    ELSE ms.mon_start
+END
+  AS l_currdate_month,
+  -- row number and count for residual detection
+  ROW_NUMBER() OVER (PARTITION BY ms.belnr, ms.vbrmonat ORDER BY ms.mon_start ) AS rn_month,
+  COUNT(*) OVER (PARTITION BY ms.belnr, ms.vbrmonat ) AS total_months
+FROM
+  gas_multi_month_spine ms ),
+  -- l_compdate = (l_lastday - l_currdate) + 1
+  gas_multi_with_compdate AS (
+SELECT
+  e.*,
+  DATE_DIFF(e.l_lastday, e.l_currdate_month, DAY) + 1 AS l_compdate
+FROM
+  gas_multi_expanded e ),
+  -- Join UDF output to get fraction and fma_type
+  gas_multi_with_fraction AS (
+SELECT
+  c.*,
+  u.fraction AS udf_fraction,
+  u.fma_type AS udf_fma_type,
+  -- l_percent: from UDF if found, else l_compdate/l_nodays
+  CASE
+    WHEN u.fraction IS NOT NULL THEN u.fraction
+    ELSE SAFE_DIVIDE(c.l_compdate, c.l_nodays)
+END
+  AS l_percent,
+  -- l_percent_avg always = l_compdate / l_nodays
+  SAFE_DIVIDE(c.l_compdate, c.l_nodays) AS l_percent_avg,
+  -- zz_edm_flg
+  CASE
+    WHEN u.fma_type IS NOT NULL THEN u.fma_type
+    ELSE 'AV'
+END
+  AS derived_zz_edm_flg,
+  -- orig values for fractions
+  c.anztage AS orig_anztage,
+  c.anzvertr AS orig_anzvertr,
+  c.betrag AS orig_betrag,
+  c.menge AS orig_menge,
+  c.sbasw AS orig_sbasw,
+  c.sbetw AS orig_sbetw,
+  CASE
+    WHEN c.stgrqnt = 'RQENGY' AND c.massbill IN ('THM', 'CCF', 'MCF', 'DTH', 'GJ') THEN c.menge
+    ELSE 0
+END
+  AS orig_zz_edm_qty,
+  CASE
+    WHEN c.buchrel = 'X' THEN c.betrag
+    ELSE 0
+END
+  AS orig_zz_edm_amt
+FROM
+  gas_multi_with_compdate c
+LEFT JOIN
+  gas_multi_udf u
+ON
+  u.belnr = c.belnr
+  AND u.zzerch_begabrpe = c.zzerch_begabrpe
+  AND u.zzerch_endabrpe = c.zzerch_endabrpe
+  AND u.calendar_month = FORMAT_DATE('%Y%m', c.mon_start) ),
+  -- Apply fractions (non-last month)
+  gas_multi_allocated AS (
+SELECT
+  f.*,
+  -- allocated values (will be corrected for last month)
+  CAST(f.orig_anztage * f.l_percent_avg AS DECIMAL) AS alloc_anztage,
+  CAST(f.orig_anzvertr * f.l_percent_avg AS DECIMAL) AS alloc_anzvertr,
+  CAST(f.orig_betrag * f.l_percent AS DECIMAL) AS alloc_betrag,
+  CAST(f.orig_menge * f.l_percent AS DECIMAL) AS alloc_menge,
+  CAST(f.orig_sbasw * f.l_percent AS DECIMAL) AS alloc_sbasw,
+  CAST(f.orig_sbetw * f.l_percent AS DECIMAL) AS alloc_sbetw,
+  CAST(f.orig_zz_edm_qty * f.l_percent AS DECIMAL) AS alloc_zz_edm_qty,
+  CAST(f.orig_zz_edm_amt * f.l_percent AS DECIMAL) AS alloc_zz_edm_amt,
+  -- cumulative sums excluding current row (for residual on last row)
+  SUM(CAST(f.orig_anztage * f.l_percent_avg AS DECIMAL)) OVER (PARTITION BY f.belnr, f.vbrmonat ORDER BY f.mon_start ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING ) AS sum_prev_anztage,
+  SUM(CAST(f.orig_anzvertr * f.l_percent_avg AS DECIMAL)) OVER (PARTITION BY f.belnr, f.vbrmonat ORDER BY f.mon_start ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING ) AS sum_prev_anzvertr,
+  SUM(CAST(f.orig_betrag * f.l_percent AS DECIMAL)) OVER (PARTITION BY f.belnr, f.vbrmonat ORDER BY f.mon_start ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING ) AS sum_prev_betrag,
+  SUM(CAST(f.orig_menge * f.l_percent AS DECIMAL)) OVER (PARTITION BY f.belnr, f.vbrmonat ORDER BY f.mon_start ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING ) AS sum_prev_menge,
+  SUM(CAST(f.orig_sbasw * f.l_percent AS DECIMAL)) OVER (PARTITION BY f.belnr, f.vbrmonat ORDER BY f.mon_start ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING ) AS sum_prev_sbasw,
+  SUM(CAST(f.orig_sbetw * f.l_percent AS DECIMAL)) OVER (PARTITION BY f.belnr, f.vbrmonat ORDER BY f.mon_start ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING ) AS sum_prev_sbetw,
+  SUM(CAST(f.orig_zz_edm_qty * f.l_percent AS DECIMAL)) OVER (PARTITION BY f.belnr, f.vbrmonat ORDER BY f.mon_start ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING ) AS sum_prev_zz_edm_qty,
+  SUM(CAST(f.orig_zz_edm_amt * f.l_percent AS DECIMAL)) OVER (PARTITION BY f.belnr, f.vbrmonat ORDER BY f.mon_start ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING ) AS sum_prev_zz_edm_amt
+FROM
+  gas_multi_with_fraction f ),
+  -- Apply residual correction on last month
+  gas_multi_residual AS (
+SELECT
+  a.*,
+  CASE
+    WHEN a.rn_month = a.total_months THEN CAST(a.orig_anztage AS DECIMAL) - COALESCE(a.sum_prev_anztage, 0)
+    ELSE a.alloc_anztage
+END
+  AS final_anztage,
+  CASE
+    WHEN a.rn_month = a.total_months THEN CAST(a.orig_anzvertr AS DECIMAL) - COALESCE(a.sum_prev_anzvertr, 0)
+    ELSE a.alloc_anzvertr
+END
+  AS final_anzvertr,
+  CASE
+    WHEN a.rn_month = a.total_months THEN CAST(a.orig_betrag AS DECIMAL) - COALESCE(a.sum_prev_betrag, 0)
+    ELSE a.alloc_betrag
+END
+  AS final_betrag,
+  CASE
+    WHEN a.rn_month = a.total_months THEN CAST(a.orig_menge AS DECIMAL) - COALESCE(a.sum_prev_menge, 0)
+    ELSE a.alloc_menge
+END
+  AS final_menge,
+  CASE
+    WHEN a.rn_month = a.total_months THEN CAST(a.orig_sbasw AS DECIMAL) - COALESCE(a.sum_prev_sbasw, 0)
+    ELSE a.alloc_sbasw
+END
+  AS final_sbasw,
+  CASE
+    WHEN a.rn_month = a.total_months THEN CAST(a.orig_sbetw AS DECIMAL) - COALESCE(a.sum_prev_sbetw, 0)
+    ELSE a.alloc_sbetw
+END
+  AS final_sbetw,
+  CASE
+    WHEN a.rn_month = a.total_months THEN CAST(a.orig_zz_edm_qty AS DECIMAL) - COALESCE(a.sum_prev_zz_edm_qty, 0)
+    ELSE a.alloc_zz_edm_qty
+END
+  AS final_zz_edm_qty,
+  CASE
+    WHEN a.rn_month = a.total_months THEN CAST(a.orig_zz_edm_amt AS DECIMAL) - COALESCE(a.sum_prev_zz_edm_amt, 0)
+    ELSE a.alloc_zz_edm_amt
+END
+  AS final_zz_edm_amt,
+  -- ab: if first month of billing period then zzerch_begabrpe else first of month
+  CASE
+    WHEN FORMAT_DATE('%Y%m', a.mon_start) = FORMAT_DATE('%Y%m', a.zzerch_begabrpe) THEN a.zzerch_begabrpe
+    ELSE a.mon_start
+END
+  AS final_ab,
+  -- bis: if last month then zzerch_endabrpe else last day of month
+  CASE
+    WHEN FORMAT_DATE('%Y%m', a.mon_start) = FORMAT_DATE('%Y%m', a.zzerch_endabrpe) THEN a.zzerch_endabrpe
+    ELSE DATE_SUB(DATE_ADD(DATE_TRUNC(a.mon_start, MONTH), INTERVAL 1 MONTH), INTERVAL 1 DAY)
+END
+  AS final_bis
+FROM
+  gas_multi_allocated a ),
+  gas_multi_rows AS (
+  SELECT
+    r.mwskz AS bbp_taxcod,
+    r.gpartner AS bpartner,
+    r.gsber AS bus_area,
+    r.applk AS caapplk,
+    r.vkont AS cacont_acc,
+    r.hvorg AS camntrans,
+    r.tvorg AS casubtrans,
+    r.cityp_code AS cityp_code,
+    r.country AS country,
+    r.city_code AS city_code,
+    r.bukrs AS comp_code,
+    r.kostl AS costcenter,
+    r.waers AS currency,
+    r.kokrs AS co_area,
+    r.final_ab AS datefrom,
+    r.final_bis AS dateto,
+    r.ktoklasse AS ucacc_clas,
+    r.sparte AS division,
+    r.stprz AS fc_taxrate,
+    r.branche AS ind_code,
+    r.txjcd AS me_txjcd,
+    CAST(r.budat AS STRING) AS pstng_date,
+    r.region AS region,
+    r.streetcode AS street_cod,
+    CAST(r.final_anztage AS DECIMAL) AS uccont_cnt,
+    r.artmenge AS ucamt_type,
+    r.aklasse AS ucbill_cla,
+    CAST(r.final_anzvertr AS DECIMAL) AS uccntrcnt,
+    r.konzigr AS ucfranchgr,
+    r.diffkz AS ucdisc_ind,
+    r.konzver AS ucfrancntr,
+    r.fran_type AS ucfran_cat,
+    r.zzhkont AS bic_zucglacct,
+    r.anlart AS ucinst_ty,
+    r.zz_einzdat AS ucmovein_d,
+    r.zz_auszdat AS ucmoveoutd,
+    r.eigenverbr AS ucowncons,
+    r.drckstuf AS ucpreslevl,
+    CAST(r.final_menge AS DECIMAL) AS ucquant,
+    r.kondigr AS ucratefakt,
+    CAST(r.final_betrag AS DECIMAL) AS var_vr,
+    r.spebene AS ucvoltlevl,
+    r.buchrel AS uc_postrel,
+    r.massbill AS unit,
+    CAST(r.final_zz_edm_amt AS DECIMAL) AS bic_zedmamt,
+    r.zz_uebud_ind AS bic_zaltpstin,
+    CAST(r.final_zz_edm_qty AS DECIMAL) AS bic_zedmqty,
+    r.zzfi_budat AS bic_zfipstdat,
+    r.zz_mtr_type AS bic_zucmtrtyp,
+    r.belnr AS bic_zucbildoc,
+    r.vertrag AS bic_zuccontra,
+    r.zzsegment AS bic_zuccusseg,
+    r.zzcust_type AS bic_zuccustyp,
+    r.zz_opbel AS bic_zucdocinv,
+    r.zzendabrpe AS bic_zucebilpc,
+    r.derived_zz_edm_flg AS bic_zucfmalty,
+    r.fikey AS bic_zucreckey,
+    r.zz_grt_pct AS bic_zucgrtrat,
+    r.anlage AS bic_zucinstal,
+    r.belzart AS bic_zuclinety,
+    r.zzbegabrpe AS bic_zucsbilpc,
+    r.prctr AS bic_zucprctr,
+    r.xcanc AS bic_zucxcanc,
+    r.zz_tbpstart AS bic_zuctdatfr,
+    r.zzg_brand AS bic_zbrandcde,
+    r.zzpl_group AS bic_zplgroup,
+    TRIM(REGEXP_REPLACE(r.zzgeraet, r'[\x00-\x1F\x7F]', '')) AS bic_zucserial,
+    TRIM(REGEXP_REPLACE(r.zzext_ui, r'[\x00-\x1F\x7F]', '')) AS bic_zucesid,
+    r.zz_congstzone AS bic_zuccongzn,
+    r.zz_energyprc_chr AS bic_zengyprcc,
+    r.zz_zieagt AS bic_zucagtid,
+    r.zz_ziecst AS bic_zuccstid,
+    r.zz_rtflg AS bic_zucrt_ind,
+    r.zzerch_begabrpe AS uc_datefro,
+    r.zzerch_endabrpe AS uc_dateto,
+    r.zzprod_type AS bic_zucprdtyp,
+    r.zz_ein01 AS bic_zucoprnd1,
+    r.zzg_utility AS bic_x_rmutlcd,
+    r.zzg_prod_type AS bic_x_prdterm,
+    r.zzg_segment AS bic_zcustypcd,
+    r.zzfaedn AS bic_zucduedt,
+    r.zzorf_type AS bic_zofrtype,
+    r.kofiz AS ucactdetid,
+    r.zzkofiz_sd AS bic_zactdetid,
+    r.zzne_ind AS bic_zneind,
+    r.vbrmonat_month AS calmonth,
+    r.ableinh AS ucrate_key,
+    r.abrvorg AS ucrate_cat,
+    r.thgdat AS ucrate_ty,
+    r.bupla AS ucupd_grp,
+    r.belzeile AS ucsgr_qnt,
+    r.zuorddaa AS ucrate_sta,
+    r.abwvk AS profit_ctr,
+    r.tarifnr AS ucserv_id,
+    r.sttarif AS ucregpolit,
+    CAST(r.temp_area AS INT64) AS bic_zedmflg,
+    CAST(r.stgrqnt AS DECIMAL) AS uctax_amt,
+    CAST(r.stgramt AS DECIMAL) AS uctax_base,
+    CAST(r.aufnr AS DECIMAL) AS bic_zgasqty,
+    r.stagruver AS bic_zgas_uom,
+    CAST(r.stafo AS DECIMAL) AS bic_zgasamt,
+    CAST(r.regpolit AS DECIMAL) AS bic_zgaslqty,
+    r.regiogroup AS bic_zgasl_uom,
+    r.serviceid AS bic_zuccaleg2,
+    r.salesdocument AS ucsgr_cont,
+    r.contractclass AS ucsgr_amt,
+    TRIM(REGEXP_REPLACE(r.portion, r'[\x00-\x1F\x7F]', '')) AS ucportion
+  FROM
+    gas_multi_residual r ),
+  -- ============================================================
+  -- UNION ALL four buckets
+  -- ============================================================
+  all_rows AS (
+SELECT
+  *
+FROM
+  bukrs_special
+UNION ALL
+SELECT
+  *
+FROM
+  non_gas_rows
+UNION ALL
+SELECT
+  *
+FROM
+  gas_same_month
+UNION ALL
+SELECT
+  *
+FROM
+  gas_multi_rows )
+SELECT
+  bbp_taxcod,
+  bpartner,
+  bus_area,
+  caapplk,
+  cacont_acc,
+  camntrans,
+  casubtrans,
+  cityp_code,
+  country,
+  city_code,
+  comp_code,
+  costcenter,
+  currency,
+  co_area,
+  CAST(datefrom AS DATE) AS datefrom,
+  CAST(dateto AS DATE) AS dateto,
+  ucacc_clas,
+  division,
+  fc_taxrate,
+  ind_code,
+  me_txjcd,
+  pstng_date,
+  region,
+  street_cod,
+  CAST(uccont_cnt AS DECIMAL) AS uccont_cnt,
+  ucamt_type,
+  ucbill_cla,
+  CAST(uccntrcnt AS DECIMAL) AS uccntrcnt,
+  ucfranchgr,
+  ucdisc_ind,
+  ucfrancntr,
+  ucfran_cat,
+  bic_zucglacct,
+  ucinst_ty,
+  CAST(ucmovein_d AS DATE) AS ucmovein_d,
+  CAST(ucmoveoutd AS DATE) AS ucmoveoutd,
+  ucowncons,
+  ucpreslevl,
+  CAST(ucquant AS DECIMAL) AS ucquant,
+  ucratefakt,
+  CAST(var_vr AS DECIMAL) AS var_vr,
+  ucvoltlevl,
+  uc_postrel,
+  unit,
+  CAST(bic_zedmamt AS DECIMAL) AS bic_zedmamt,
+  bic_zaltpstin,
+  CAST(bic_zedmqty AS DECIMAL) AS bic_zedmqty,
+  CAST(bic_zfipstdat AS DATE) AS bic_zfipstdat,
+  bic_zucmtrtyp,
+  bic_zucbildoc,
+  bic_zuccontra,
+  bic_zuccusseg,
+  bic_zuccustyp,
+  bic_zucdocinv,
+  CAST(bic_zucebilpc AS DATE) AS bic_zucebilpc,
+  bic_zucfmalty,
+  bic_zucreckey,
+  bic_zucgrtrat,
+  bic_zucinstal,
+  bic_zuclinety,
+  CAST(bic_zucsbilpc AS DATE) AS bic_zucsbilpc,
+  bic_zucprctr,
+  bic_zucxcanc,
+  CAST(bic_zuctdatfr AS DATE) AS bic_zuctdatfr,
+  bic_zbrandcde,
+  bic_zplgroup,
+  bic_zucserial,
+  bic_zucesid,
+  bic_zuccongzn,
+  bic_zengyprcc,
+  bic_zucagtid,
+  bic_zuccstid,
+  bic_zucrt_ind,
+  CAST(uc_datefro AS DATE) AS uc_datefro,
+  CAST(uc_dateto AS DATE) AS uc_dateto,
+  bic_zucprdtyp,
+  bic_zucoprnd1,
+  bic_x_rmutlcd,
+  bic_x_prdterm,
+  bic_zcustypcd,
+  CAST(bic_zucduedt AS DATE) AS bic_zucduedt,
+  bic_zofrtype,
+  ucactdetid,
+  bic_zactdetid,
+  bic_zneind,
+  calmonth,
+  ucrate_key,
+  ucrate_cat,
+  ucrate_ty,
+  ucupd_grp,
+  ucsgr_qnt,
+  ucrate_sta,
+  profit_ctr,
+  ucserv_id,
+  ucregpolit,
+  CAST(bic_zedmflg AS INT64) AS bic_zedmflg,
+  CAST(uctax_amt AS DECIMAL) AS uctax_amt,
+  CAST(uctax_base AS DECIMAL) AS uctax_base,
+  CAST(bic_zgasqty AS DECIMAL) AS bic_zgasqty,
+  bic_zgas_uom,
+  CAST(bic_zgasamt AS DECIMAL) AS bic_zgasamt,
+  CAST(bic_zgaslqty AS DECIMAL) AS bic_zgaslqty,
+  bic_zgasl_uom,
+  bic_zuccaleg2,
+  ucsgr_cont,
+  ucsgr_amt,
+  ucportion
+FROM
+  all_rows

@@ -18,7 +18,7 @@ config {
 
 WITH source_base AS (
   SELECT *
-  FROM `sapanalytics-309913.sales_cdc_poc.zuc_isu_02_70`
+  FROM ${ref("zuc_isu_02_70")}
 ),
 bukrs_special AS (
   SELECT

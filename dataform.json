@@ -1,0 +1,9 @@
+{
+  "warehouse": "bigquery",
+  "defaultSchema": "sales_poc_dev",
+  "assertionSchema": "sales_poc_assertions",
+  "defaultDatabase": "sapanalytics-309913",
+  "vars": {
+    "env": "dev"
+  }
+}
