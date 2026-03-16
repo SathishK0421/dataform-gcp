@@ -1,7 +1,7 @@
 config {
     type: "view",
     //* schema: "sales_curated_poc",
-    name: "src_sales_raw",
+    name: "src_sales_cdc",
     tags: ["staging", "uc_sales_stats", "billing", 'fact_gen'],
     description: "CTE-heavy preparation from CDC and mapping before final curated projection."
 }

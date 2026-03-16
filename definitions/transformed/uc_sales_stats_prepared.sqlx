@@ -7,7 +7,7 @@ config {
 }
 
 WITH
-  CDC_WRAPPER AS (
+  CDC_WRAPPER AS (  
   WITH
     UTIL_MAPPING AS (
     SELECT
@@ -23,7 +23,7 @@ WITH
     SELECT
       *
     FROM
-      ${ref("src_sales_raw")} ),
+      ${ref("src_sales_cdc")} ),
     BUKRS_SPECIAL AS (
     SELECT
       S.*,
