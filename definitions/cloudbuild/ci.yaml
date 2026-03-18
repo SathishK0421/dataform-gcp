@@ -1,0 +1,28 @@
+steps:
+  - name: 'node:18'
+    id: 'Install Dependencies'
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        npm install -g @dataform/cli
+        npm install
+
+  - name: 'node:18'
+    id: 'Compile'
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        dataform compile --vars='{"env":"dev"}'
+
+  - name: 'node:18'
+    id: 'Run Tests'
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        dataform test --vars='{"env":"dev"}'
+
+options:
+  logging: CLOUD_LOGGING_ONLY

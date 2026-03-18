@@ -1,0 +1,25 @@
+steps:
+  - name: 'node:18'
+    id: 'Setup'
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        npm install -g @dataform/cli
+        npm install
+
+  - name: 'node:18'
+    id: 'Compile Dev'
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        dataform compile --vars='{"env":"dev"}'
+
+  - name: 'node:18'
+    id: 'Run Dev'
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        dataform run --vars='{"env":"dev"}'
