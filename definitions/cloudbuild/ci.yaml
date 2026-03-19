@@ -21,7 +21,11 @@ steps:
     args:
       - -c
       - |
-        npx @dataform/cli test --vars='{"env":"dev"}'
+        npx @dataform/cli test \
+  --project-id=$PROJECT_ID \
+  --location=$REGION \
+  --repository-id=$DATAFORM_REPO \
+  --vars='{"env":"dev"}'
 
 options:
   logging: CLOUD_LOGGING_ONLY
