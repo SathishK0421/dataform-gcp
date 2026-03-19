@@ -5,7 +5,9 @@ steps:
     args:
       - -c
       - |
-        npm install @dataform/cli@latest
+        cd /workspace
+        npm ci  # Installs package.json deps
+        npx @dataform/cli@latest install  # Dataform project deps
 
   - name: 'node:18'
     id: 'Compile'
@@ -13,16 +15,17 @@ steps:
     args:
       - -c
       - |
-        npx @dataform/cli compile --vars='{"env":"dev"}'
+        cd /workspace
+        npx @dataform/cli@latest compile --vars='{"env":"dev"}'
 
   - name: 'node:18'
-    id: 'Run Tests'
+    id: 'Validate'  # Changed from Run Tests
     entrypoint: bash
     args:
       - -c
       - |
         cd /workspace
-        npx @dataform/cli@^3.0.0-beta run --vars='{"env":"dev"}'
+        npx @dataform/cli@latest test --vars='{"env":"dev"}'  # Local tests only
 
 options:
   logging: CLOUD_LOGGING_ONLY
