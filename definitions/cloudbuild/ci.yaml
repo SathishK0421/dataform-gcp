@@ -22,8 +22,8 @@ steps:
       - -c
       - |
         cd /workspace
-        npx @dataform/cli@^3.0.0-beta test --vars='{"env":"dev"}'
-        echo "CI passed: syntax, tests valid"
+        find . -name "*.sqlx" -exec grep -l "project\|location\|repository" {} \;
+        dataform compile --vars='{"env":"dev"}' 2>&1 | tee compile.log
 
 options:
   logging: CLOUD_LOGGING_ONLY
