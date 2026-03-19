@@ -5,10 +5,7 @@ steps:
     args:
       - -c
       - |
-        npm install -g @dataform/cli
         npm install
-        export PATH="$(npm bin -g):$PATH"
-        dataform --version
 
   - name: 'node:18'
     id: 'Compile'
@@ -16,8 +13,7 @@ steps:
     args:
       - -c
       - |
-        export PATH="$(npm bin -g):$PATH"
-        dataform compile --vars='{"env":"dev"}'
+        npx @dataform/cli compile --vars='{"env":"dev"}'
 
   - name: 'node:18'
     id: 'Run Tests'
@@ -25,8 +21,7 @@ steps:
     args:
       - -c
       - |
-        export PATH="$(npm bin -g):$PATH"
-        dataform test --vars='{"env":"dev"}'
+        npx @dataform/cli test --vars='{"env":"dev"}'
 
 options:
   logging: CLOUD_LOGGING_ONLY
