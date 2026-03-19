@@ -21,7 +21,7 @@ steps:
     args:
       - -c
       - |
-        npx @dataform/cli test --vars='{"env":"dev"}'
+        npx @dataform/cli test --vars='{"env":"dev"}' --use-default-credentials
 
 options:
   logging: CLOUD_LOGGING_ONLY
