@@ -22,9 +22,9 @@ steps:
       - -c
       - |
         npx @dataform/cli test \
-  --project-id=$PROJECT_ID \
-  --location=$REGION \
-  --repository-id=$DATAFORM_REPO \
+  --project-id=$_PROJECT_ID \
+  --location=$_REGION \
+  --repository-id=$_DATAFORM_REPO \
   --vars='{"env":"dev"}'
 
 options:
