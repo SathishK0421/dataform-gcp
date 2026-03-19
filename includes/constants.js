@@ -1,3 +1,4 @@
-const company_code = ['7003','7006','7007'];
-const bu = "'20'"
-module.exports = {company_code, bu };
+module.exports = {
+  GAS_PRODUCT_CODES: ['7003','7007','7006'],
+  BU: "'20'"
+};
