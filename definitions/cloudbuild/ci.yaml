@@ -5,7 +5,7 @@ steps:
     args:
       - -c
       - |
-        npm install
+        npm install @dataform/cli@latest
 
   - name: 'node:18'
     id: 'Compile'
