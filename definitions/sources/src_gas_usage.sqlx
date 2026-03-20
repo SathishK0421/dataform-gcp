@@ -1,6 +1,7 @@
 config {
-    type: "declaration",
+    type: "view",
     database: "sapanalytics-309913",
     schema: "sales_cdc_poc",
-    name: "FACT_MDRP_GAS_ACCTG"
+    name: "FACT_MDRP_GAS_ACCTG",
+    disabled: true
 }
