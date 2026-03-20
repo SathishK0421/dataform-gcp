@@ -21,7 +21,7 @@ steps:
       - -c
       - |
         cd /workspace
-        npx @dataform/cli@3.0.48 compile --vars='{"env":"dev"}'
+        npx @dataform/cli@3.0.48 compile 
 
   - name: 'node:18'
     id: 'Validate'
@@ -30,7 +30,7 @@ steps:
       - -c
       - |
         cd /workspace
-        npx @dataform/cli@3.0.48 test --vars='{"env":"dev"}' --verbose
+        npx @dataform/cli@3.0.48 test 
 
 availableSecrets:
   secretManager:

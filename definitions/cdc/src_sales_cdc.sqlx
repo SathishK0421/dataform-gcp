@@ -1,12 +1,12 @@
 config {
     type: "view",
-    //* schema: "sales_curated_poc",
+    schema: "sales_curated_poc",
     name: "src_sales_cdc",
     tags: ["staging", "uc_sales_stats", "billing", "fact_gen"],
-    description: "CTE-heavy preparation from CDC and mapping before final curated projection.",
-    schema: dataform.projectConfig.vars.env === "prod" ?
+    description: "CTE-heavy preparation from CDC and mapping before final curated projection."
+    /*schema: dataform.projectConfig.vars.env === "prod" ?
         "sales_poc_prod" : dataform.projectConfig.vars.env === "staging" ?
-        "sales_poc_stg" : "sales_poc_dev"
+        "sales_poc_stg" : "sales_poc_dev"*/
 }
 
 SELECT
