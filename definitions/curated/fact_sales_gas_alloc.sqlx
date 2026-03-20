@@ -1,15 +1,12 @@
 config {
     type: "table",
     name: "fact_sales_gas_alloc_poc",
-    tags: ["final_fact",'fact_gen'],
+    tags: ["final_fact", 'fact_gen'],
     description: "",
     schema: dataform.projectConfig.vars.env === "prod" ?
-        "sales_poc_prod" :
-        dataform.projectConfig.vars.env === "staging" ?
-        "sales_poc_stg" :
-        "sales_poc_dev"
+        "sales_poc_prod" : dataform.projectConfig.vars.env === "staging" ?
+        "sales_poc_stg" : "sales_poc_dev"
 }
-
 
 SELECT
   BPARTNER,
@@ -24,13 +21,13 @@ SELECT
   DIVISION,
   PSTNG_DATE,
   REGION,
-  CAST(UCCNTRCNT AS DECIMAL) as UCCNTRCNT ,
-  CAST(UCCONT_CNT AS DECIMAL) as UCCONT_CNT,
+  CAST(UCCNTRCNT AS DECIMAL) AS UCCNTRCNT,
+  CAST(UCCONT_CNT AS DECIMAL) AS UCCONT_CNT,
   UCMOVEIN_D,
   UCMOVEOUTD,
   UCPORTION,
   UNIT,
-  CAST(VAR_VR AS DECIMAL) as VAR_VR,
+  CAST(VAR_VR AS DECIMAL) AS VAR_VR,
   ZUCBILDOC,
   ZUCCUSSEG,
   ZUCDOCINV,
@@ -40,12 +37,12 @@ SELECT
   CALMONTH,
   NULL AS ZZ_FRACTION,
   ZUCCALEG2,
-  CAST(ZGASQTY AS DECIMAL) as ZGASQTY,
-  CAST(ZGASLQTY AS DECIMAL) as ZGASLQTY,
+  CAST(ZGASQTY AS DECIMAL) AS ZGASQTY,
+  CAST(ZGASLQTY AS DECIMAL) AS ZGASLQTY,
   ZGAS_UOM,
   ZGASL_UOM,
-  CAST(ZGASAMT AS DECIMAL) as ZGASAMT,
-  CAST(ZEDMQTY AS DECIMAL) as ZEDMQTY,
-  CAST(ZEDMAMT AS DECIMAL) as ZEDMAMT
+  CAST(ZGASAMT AS DECIMAL) AS ZGASAMT,
+  CAST(ZEDMQTY AS DECIMAL) AS ZEDMQTY,
+  CAST(ZEDMAMT AS DECIMAL) AS ZEDMAMT
 FROM
   ${ref("uc_sales_stats_prepared")}

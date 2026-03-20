@@ -5,14 +5,12 @@ config {
     tags: ["staging", "uc_sales_stats", "billing", 'fact_gen'],
     description: "CTE-heavy preparation from CDC and mapping before final curated projection.",
     schema: dataform.projectConfig.vars.env === "prod" ?
-        "sales_poc_prod" :
-        dataform.projectConfig.vars.env === "staging" ?
-        "sales_poc_stg" :
-        "sales_poc_dev"
+        "sales_poc_prod" : dataform.projectConfig.vars.env === "staging" ?
+        "sales_poc_stg" : "sales_poc_dev"
 }
 
 WITH
-  CDC_WRAPPER AS (  
+  CDC_WRAPPER AS (
   WITH
     UTIL_MAPPING AS (
     SELECT
@@ -829,8 +827,8 @@ WITH
       S.ZZ_TBPSTART,
       S.ZZG_BRAND,
       S.ZZPL_GROUP,
-       ${helper.clean_portion("S.ZZGERAET")} AS ZZGERAET,
-       ${helper.clean_portion("S.ZZEXT_UI")} AS ZZEXT_UI,
+      ${helper.clean_portion("S.ZZGERAET")} AS ZZGERAET,
+      ${helper.clean_portion("S.ZZEXT_UI")} AS ZZEXT_UI,
       --REGEXP_REPLACE(S.ZZGERAET, R'[^X20-X7E]', '') AS ZZGERAET,
       --REGEXP_REPLACE(S.ZZEXT_UI, R'[^X20-X7E]', '') AS ZZEXT_UI,
       S.ZZ_CONGSTZONE,
@@ -923,8 +921,8 @@ WITH
       F.ZZ_TBPSTART,
       F.ZZG_BRAND,
       F.ZZPL_GROUP,
-       ${helper.clean_portion("F.ZZGERAET")} AS ZZGERAET,
-       ${helper.clean_portion("F.ZZEXT_UI")} AS ZZEXT_UI,
+      ${helper.clean_portion("F.ZZGERAET")} AS ZZGERAET,
+      ${helper.clean_portion("F.ZZEXT_UI")} AS ZZEXT_UI,
       --REGEXP_REPLACE(F.ZZGERAET, R'[^X20-X7E]', '') AS ZZGERAET,
       --REGEXP_REPLACE(F.ZZEXT_UI, R'[^X20-X7E]', '') AS ZZEXT_UI,
       F.ZZ_CONGSTZONE,

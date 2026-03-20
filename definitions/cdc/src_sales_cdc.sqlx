@@ -7,7 +7,6 @@ config {
     schema: dataform.projectConfig.vars.env === "prod" ?
         "sales_poc_prod" : dataform.projectConfig.vars.env === "staging" ?
         "sales_poc_stg" : "sales_poc_dev"
-
 }
 
 SELECT
