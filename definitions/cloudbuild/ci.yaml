@@ -12,7 +12,7 @@ steps:
 
         cd /workspace
         npm ci  # Installs package.json deps
-        npx @dataform/cli@latest install  # Dataform project deps
+        npx @dataform/cli@3.0.48 install  # Dataform project deps
 
   - name: 'node:18'
     id: 'Compile'
@@ -21,7 +21,7 @@ steps:
       - -c
       - |
         cd /workspace
-        npx @dataform/cli@latest compile --vars='{"env":"dev"}'
+        npx @dataform/cli@3.0.48 compile --vars='{"env":"dev"}'
 
   - name: 'node:18'
     id: 'Validate'
@@ -30,7 +30,7 @@ steps:
       - -c
       - |
         cd /workspace
-        npx @dataform/cli@latest run --vars='{"env":"dev"}'
+        npx @dataform/cli@3.0.48 run --vars='{"env":"dev"}'
 
 availableSecrets:
   secretManager:
