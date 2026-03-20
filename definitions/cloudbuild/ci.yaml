@@ -33,7 +33,7 @@ steps:
 
 availableSecrets:
   secretManager:
-    - versionName: projects/sapanalytics-309913/secrets/df-credentials-sa/versions/latest
+    - versionName: projects/50822209723/secrets/df-credentials-sa/versions/latest
       env: DATAFORM_CREDENTIALS_JSON
 
 options:
