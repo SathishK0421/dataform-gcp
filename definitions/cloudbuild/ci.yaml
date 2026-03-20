@@ -5,6 +5,10 @@ steps:
     args:
       - -c
       - |
+        # Write secret JSON to a file
+        echo "$DATAFORM_CREDENTIALS_JSON" > /workspace/.df-credentials.json
+        export GOOGLE_APPLICATION_CREDENTIALS="/workspace/.df-credentials.json"
+
         cd /workspace
         npm ci  # Installs package.json deps
         npx @dataform/cli@latest install  # Dataform project deps
@@ -19,13 +23,18 @@ steps:
         npx @dataform/cli@latest compile --vars='{"env":"dev"}'
 
   - name: 'node:18'
-    id: 'Validate'  # Changed from Run Tests
+    id: 'Validate'
     entrypoint: bash
     args:
       - -c
       - |
         cd /workspace
-        npx @dataform/cli@latest test --vars='{"env":"dev"}'  # Local tests only
+        npx @dataform/cli@latest test --vars='{"env":"dev"}'
+
+availableSecrets:
+  secretManager:
+    - versionName: projects/sapanalytics-309913/secrets/df-credentials-sa/versions/latest
+      env: DATAFORM_CREDENTIALS_JSON
 
 options:
   logging: CLOUD_LOGGING_ONLY
