@@ -6,7 +6,7 @@ steps:
       - -c
       - |
         # Write secret JSON to a file
-        echo "$DATAFORM_CREDENTIALS_JSON" > /workspace/.df-credentials.json
+        echo "$$DATAFORM_CREDENTIALS_JSON" > /workspace/.df-credentials.json
         export GOOGLE_APPLICATION_CREDENTIALS="/workspace/.df-credentials.json"
 
         cd /workspace
