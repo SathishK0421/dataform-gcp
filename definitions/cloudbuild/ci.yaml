@@ -2,6 +2,7 @@ steps:
   - name: 'node:18'
     id: 'Install Dependencies'
     entrypoint: bash
+    secretEnv: ['DATAFORM_CREDENTIALS_JSON']
     args:
       - -c
       - |
