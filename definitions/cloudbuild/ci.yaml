@@ -30,7 +30,7 @@ steps:
       - -c
       - |
         cd /workspace
-        npx @dataform/cli@3.0.48 run --vars='{"env":"dev"}'
+        npx @dataform/cli@3.0.48 test --vars='{"env":"dev"}' --verbose
 
 availableSecrets:
   secretManager:
