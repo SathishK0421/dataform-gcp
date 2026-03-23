@@ -34,6 +34,17 @@ steps:
         cd /workspace
         npx @dataform/cli@3.0.48 test
 
+  - name: 'node:18'
+    id: 'Run'
+    entrypoint: bash
+    env:
+      - 'GOOGLE_APPLICATION_CREDENTIALS=/workspace/sa-key.json'
+    args:
+      - -c
+      - |
+        cd /workspace
+        npx @dataform/cli@3.0.48 run
+
 availableSecrets:
   secretManager:
     - versionName: projects/50822209723/secrets/dataform-project-config/versions/latest
