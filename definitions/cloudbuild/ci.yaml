@@ -38,7 +38,7 @@ availableSecrets:
   secretManager:
     - versionName: projects/50822209723/secrets/dataform-project-config/versions/latest
       env: DATAFORM_CREDENTIALS_JSON
-    - versionName: projects/50822209723/secrets/dataform-sa-key/versions/latest
+    - versionName: projects/50822209723/secrets/df-credentials-sa/versions/latest
       env: GCP_SA_KEY
 
 options:
