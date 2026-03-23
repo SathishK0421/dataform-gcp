@@ -1,25 +1,45 @@
 steps:
   - name: 'node:18'
-    id: 'Setup'
+    id: 'Install Dependencies'
     entrypoint: bash
+    secretEnv: ['DATAFORM_CREDENTIALS_JSON', 'GCP_SA_KEY']
     args:
       - -c
       - |
-        npm install -g @dataform/cli
-        npm install
+        echo "$$DATAFORM_CREDENTIALS_JSON" > /workspace/.df-credentials.json
+        echo "$$GCP_SA_KEY" > /workspace/sa-key.json
+        cd /workspace
+        npm ci
+        npx @dataform/cli@3.0.48 install
 
   - name: 'node:18'
-    id: 'Compile Dev'
+    id: 'Compile'
     entrypoint: bash
+    env:
+      - 'GOOGLE_APPLICATION_CREDENTIALS=/workspace/sa-key.json'
     args:
       - -c
       - |
-        dataform compile --vars='{"env":"dev"}'
+        cd /workspace
+        npx @dataform/cli@3.0.48 compile --vars='{"env":"dev"}'
 
   - name: 'node:18'
-    id: 'Run Dev'
+    id: 'Run'
     entrypoint: bash
+    env:
+      - 'GOOGLE_APPLICATION_CREDENTIALS=/workspace/sa-key.json'
     args:
       - -c
       - |
-        dataform run --vars='{"env":"dev"}'
+        cd /workspace
+        npx @dataform/cli@3.0.48 run --vars='{"env":"dev"}'
+
+availableSecrets:
+  secretManager:
+    - versionName: projects/50822209723/secrets/dataform-project-config/versions/latest
+      env: DATAFORM_CREDENTIALS_JSON
+    - versionName: projects/50822209723/secrets/df-credentials-sa/versions/latest
+      env: GCP_SA_KEY
+
+options:
+  logging: CLOUD_LOGGING_ONLY

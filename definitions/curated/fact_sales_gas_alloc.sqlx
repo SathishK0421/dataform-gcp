@@ -2,10 +2,10 @@ config {
     type: "table",
     name: "fact_sales_gas_alloc_poc",
     tags: ["final_fact", 'fact_gen'],
-    description: ""
-    /*schema: dataform.projectConfig.vars.env === "prod" ?
+    description: "",
+    schema: dataform.projectConfig.vars.env === "prod" ?
         "sales_poc_prod" : dataform.projectConfig.vars.env === "staging" ?
-        "sales_poc_stg" : "sales_poc_dev"*/
+        "sales_poc_stg" : "sales_poc_dev"
 }
 
 SELECT

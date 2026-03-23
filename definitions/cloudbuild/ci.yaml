@@ -21,10 +21,10 @@ steps:
       - -c
       - |
         cd /workspace
-        npx @dataform/cli@3.0.48 compile
+        npx @dataform/cli@3.0.48 compile --vars='{"env":"dev"}'
 
   - name: 'node:18'
-    id: 'Run'
+    id: 'test'
     entrypoint: bash
     env:
       - 'GOOGLE_APPLICATION_CREDENTIALS=/workspace/sa-key.json'
@@ -32,7 +32,7 @@ steps:
       - -c
       - |
         cd /workspace
-        npx @dataform/cli@3.0.48 run
+        npx @dataform/cli@3.0.48 test --vars='{"env":"dev"}'
 
 availableSecrets:
   secretManager:
