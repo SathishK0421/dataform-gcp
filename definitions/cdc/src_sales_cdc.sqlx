@@ -3,7 +3,7 @@ config {
     //schema: "sales_curated_poc",
     name: "src_sales_cdc",
     tags: ["sales_gas_alloc"],
-    description: "CTE-heavy preparation from CDC and mapping before final curated projection.",
+    description: "",
     schema: dataform.projectConfig.vars.env === "prod" ?
         "sales_poc_prod" : dataform.projectConfig.vars.env === "staging" ?
         "sales_poc_stg" : "sales_poc_dev"
