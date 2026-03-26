@@ -1,58 +1,105 @@
 substitutions:
   _OWNER: ""
   _REPO: ""
-  _COMMIT_SHA: ""   # optional override
+  _COMMIT_SHA: ""
 
 steps:
   # -----------------------------
-  # Test step (optional)
+  # Debug & Validate Inputs
   # -----------------------------
-  - name: 'ubuntu'
-    id: "Debug inputs"
+  - name: "ubuntu"
+    id: "Validate Inputs"
     entrypoint: bash
     args:
       - -c
       - |
-        echo "COMMIT_SHA (default): $COMMIT_SHA"
-        echo "_COMMIT_SHA (manual): ${_COMMIT_SHA}"
+        set -euo pipefail
+
+        echo "🔍 Validating required substitution variables..."
+
+        # Validate required substitutions
+        missing_vars=()
+
+        [[ -z "${_OWNER}" ]] && missing_vars+=("_OWNER")
+        [[ -z "${_REPO}" ]] && missing_vars+=("_REPO")
+        [[ -z "${_COMMIT_SHA}" ]] && missing_vars+=("_COMMIT_SHA")
+
+        if [[ ${#missing_vars[@]} -ne 0 ]]; then
+          echo "❌ Missing required substitution variables: ${missing_vars[*]}"
+          exit 1
+        fi
+
+        echo "✅ Inputs validated successfully"
+        echo "OWNER:        ${_OWNER}"
+        echo "REPO:         ${_REPO}"
+        echo "COMMIT_SHA:   ${_COMMIT_SHA}"
 
   # -----------------------------
-  # PR Comment Step
+  # PR Comment Step (with validation)
   # -----------------------------
-  
-  - name: 'ubuntu'
+  - name: "ubuntu"
     id: "Comment on PR"
     entrypoint: bash
-    secretEnv: ['DATAFORM_CREDENTIALS_JSON', 'GCP_SA_KEY','TOKN']
+    secretEnv:
+      - DATAFORM_CREDENTIALS_JSON
+      - GCP_SA_KEY
+      - GITHUB_TOKEN
     args:
       - -c
       - |
-        set -e
+        set -euo pipefail
+
+        echo "🔐 Validating required secrets..."
+
+        # Validate secrets presence
+        [[ -z "${GITHUB_TOKEN}" ]] && { echo "❌ Missing secret: GITHUB_TOKEN"; exit 1; }
+        [[ -z "${DATAFORM_CREDENTIALS_JSON}" ]] && echo "⚠️ DATAFORM_CREDENTIALS_JSON is empty"
+        [[ -z "${GCP_SA_KEY}" ]] && echo "⚠️ GCP_SA_KEY is empty"
+
+        echo "✅ Secrets validated"
 
         apt-get update -y >/dev/null
         apt-get install -y jq >/dev/null
 
-        RESPONSE=$(curl -s \
-          -H "Authorization: token $TOKN" \
-          -H "Accept: application/vnd.github+json" \
-          https://api.github.com/repos/${_OWNER}/${_REPO}/commits/${_COMMIT_SHA}/pulls)
+        echo "🔎 Fetching PR information from GitHub..."
 
+        # Fetch list of PRs associated with commit
+        RESPONSE=$(curl -s -f \
+          -H "Authorization: Bearer $GITHUB_TOKEN" \
+          -H "Accept: application/vnd.github+json" \
+          "https://api.github.com/repos/${_OWNER}/${_REPO}/commits/${_COMMIT_SHA}/pulls" \
+        ) || { echo "❌ GitHub API call failed"; exit 1; }
+
+        # Validate API returned an array
+        if ! echo "$RESPONSE" | jq empty >/dev/null 2>&1; then
+          echo "❌ Invalid JSON received from GitHub"
+          echo "$RESPONSE"
+          exit 1
+        fi
+
+        # Extract PR number (only merged PRs)
         PR_NUMBER=$(echo "$RESPONSE" | jq -r '.[] | select(.merged_at != null) | .number' | head -n1)
 
-        if [ -z "$PR_NUMBER" ] || [ "$PR_NUMBER" = "null" ]; then
-          echo "⚠️ No PR found, skipping comment"
+        if [[ -z "${PR_NUMBER}" || "${PR_NUMBER}" == "null" ]]; then
+          echo "⚠️ No associated merged PR found — skipping PR comment"
           exit 0
         fi
 
-        echo "✅ Found PR: #$PR_NUMBER"
+        echo "✅ Found PR: #${PR_NUMBER}"
+        echo "📝 Posting comment to PR..."
 
-        curl -s -X POST \
-          -H "Authorization: token $TOKN" \
+        COMMENT_PAYLOAD=$(jq -n \
+          --arg commit "${_COMMIT_SHA}" \
+          '{"body": "🧪 Test Deployment (manual run) ✅\n\nCommit: \($commit)"}'
+        )
+
+        curl -s -X POST -f \
+          -H "Authorization: Bearer $GITHUB_TOKEN" \
           -H "Accept: application/vnd.github+json" \
-          https://api.github.com/repos/${_OWNER}/${_REPO}/issues/$PR_NUMBER/comments \
-          -d "{
-            \"body\": \"🧪 Test Deployment (manual run) ✅\n\nCommit: ${_COMMIT_SHA}\"
-          }"
+          "https://api.github.com/repos/${_OWNER}/${_REPO}/issues/${PR_NUMBER}/comments" \
+          -d "${COMMENT_PAYLOAD}" \
+        && echo "✅ Comment posted successfully" \
+        || { echo "❌ Failed to post comment"; exit 1; }
 
 availableSecrets:
   secretManager:
@@ -61,7 +108,7 @@ availableSecrets:
     - versionName: projects/50822209723/secrets/df-credentials-sa/versions/latest
       env: GCP_SA_KEY
     - versionName: projects/50822209723/secrets/dataform_GCP/versions/latest
-      env: TOKN
+      env: GITHUB_TOKEN
 
 options:
   logging: CLOUD_LOGGING_ONLY
