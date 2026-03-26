@@ -1,0 +1,79 @@
+substitutions:
+  _OWNER: your-org
+  _REPO: your-repo
+  _COMMIT_SHA: ""   # optional override
+
+steps:
+  # -----------------------------
+  # Test step (optional)
+  # -----------------------------
+  - name: 'ubuntu'
+    id: "Debug inputs"
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        echo "COMMIT_SHA (default): $COMMIT_SHA"
+        echo "_COMMIT_SHA (manual): ${_COMMIT_SHA}"
+
+  # -----------------------------
+  # PR Comment Step
+  # -----------------------------
+  - name:'ubuntu'
+    id: "Comment on PR"
+    entrypoint: bash
+    secretEnv: ["GITHUB_TOKEN"]
+    args:
+      - -c
+      - |
+        set -e
+
+        apt-get update -y >/dev/null
+        apt-get install -y jq >/dev/null
+
+        # 👇 Use manual override if provided
+        FINAL_COMMIT_SHA=${_COMMIT_SHA:-$COMMIT_SHA}
+
+        if [ -z "$FINAL_COMMIT_SHA" ]; then
+          echo "❌ No commit SHA provided"
+          exit 1
+        fi
+
+        echo "🔍 Using commit: $FINAL_COMMIT_SHA"
+
+        RESPONSE=$(curl -s \
+          -H "Authorization: token $GITHUB_TOKEN" \
+          -H "Accept: application/vnd.github+json" \
+          https://api.github.com/repos/${_OWNER}/${_REPO}/commits/$FINAL_COMMIT_SHA/pulls)
+
+        PR_NUMBER=$(echo "$RESPONSE" | jq -r '.[] | select(.merged_at != null) | .number' | head -n1)
+
+        if [ -z "$PR_NUMBER" ] || [ "$PR_NUMBER" = "null" ]; then
+          echo "⚠️ No PR found, skipping comment"
+          exit 0
+        fi
+
+        echo "✅ Found PR: #$PR_NUMBER"
+
+        curl -s -X POST \
+          -H "Authorization: token $GITHUB_TOKEN" \
+          -H "Accept: application/vnd.github+json" \
+          https://api.github.com/repos/${_OWNER}/${_REPO}/issues/$PR_NUMBER/comments \
+          -d "{
+            \"body\": \"🧪 Test Deployment (manual run) ✅\n\nCommit: $FINAL_COMMIT_SHA\"
+          }"
+
+availableSecrets:
+  secretManager:
+    - versionName: projects/YOUR_PROJECT_ID/secrets/github-token/versions/latest
+      env: GITHUB_TOKEN
+
+availableSecrets:
+  secretManager:
+    - versionName: projects/50822209723/secrets/dataform-project-config/versions/latest
+      env: DATAFORM_CREDENTIALS_JSON
+    - versionName: projects/50822209723/secrets/df-credentials-sa/versions/latest
+      env: GCP_SA_KEY
+
+options:
+  logging: CLOUD_LOGGING_ONLY
