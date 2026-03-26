@@ -19,6 +19,7 @@ steps:
   # -----------------------------
   # PR Comment Step
   # -----------------------------
+  
   - name: 'ubuntu'
     id: "Comment on PR"
     entrypoint: bash
@@ -34,31 +35,31 @@ steps:
         # 👇 Use manual override if provided
         COMMIT_TO_USE=${_COMMIT_SHA:-$COMMIT_SHA}
 
-      if [ -z "$COMMIT_TO_USE" ]; then
-        echo "❌ No commit SHA provided"
-        exit 1
-      fi
+        if [ -z "$COMMIT_TO_USE" ]; then
+          echo "❌ No commit SHA provided"
+          exit 1
+        fi
 
-      echo "🔍 Using commit: $COMMIT_TO_USE"
+        echo "🔍 Using commit: $COMMIT_TO_USE"
 
-      RESPONSE=$(curl -s \
-        -H "Authorization: token $GITHUB_TOKEN" \
-        -H "Accept: application/vnd.github+json" \
-        https://api.github.com/repos/${_OWNER}/${_REPO}/commits/$COMMIT_TO_USE/pulls)
+        RESPONSE=$(curl -s \
+          -H "Authorization: token $GITHUB_TOKEN" \
+          -H "Accept: application/vnd.github+json" \
+          https://api.github.com/repos/${_OWNER}/${_REPO}/commits/$COMMIT_TO_USE/pulls)
 
-      PR_NUMBER=$(echo "$RESPONSE" | jq -r '.[] | select(.merged_at != null) | .number' | head -n1)
+        PR_NUMBER=$(echo "$RESPONSE" | jq -r '.[] | select(.merged_at != null) | .number' | head -n1)
 
-      if [ -z "$PR_NUMBER" ] || [ "$PR_NUMBER" = "null" ]; then
-        echo "⚠️ No PR found, skipping comment"
-        exit 0
-      fi
+        if [ -z "$PR_NUMBER" ] || [ "$PR_NUMBER" = "null" ]; then
+          echo "⚠️ No PR found, skipping comment"
+          exit 0
+        fi
 
-      echo "✅ Found PR: #$PR_NUMBER"
+        echo "✅ Found PR: #$PR_NUMBER"
 
-      curl -s -X POST \
-        -H "Authorization: token $GITHUB_TOKEN" \
-        -H "Accept: application/vnd.github+json" \
-        https://api.github.com/repos/${_OWNER}/${_REPO}/issues/$PR_NUMBER/comments \
+        curl -s -X POST \
+          -H "Authorization: token $GITHUB_TOKEN" \
+          -H "Accept: application/vnd.github+json" \
+          https://api.github.com/repos/${_OWNER}/${_REPO}/issues/$PR_NUMBER/comments \
           -d "{
             \"body\": \"🧪 Test Deployment (manual run) ✅\n\nCommit: $FINAL_COMMIT_SHA\"
           }"
