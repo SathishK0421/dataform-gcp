@@ -32,8 +32,13 @@ steps:
         apt-get update -y >/dev/null
         apt-get install -y jq >/dev/null
 
-        # 👇 Use manual override if provided
-        COMMIT_TO_USE=$${_COMMIT_SHA:-$COMMIT_SHA}
+        # 👇 Use manual override if provided        
+        if [ -n "$_COMMIT_SHA" ]; then
+          COMMIT_TO_USE="$_COMMIT_SHA"
+        else
+          COMMIT_TO_USE="$COMMIT_SHA"
+        fi
+
 
         if [ -z "$COMMIT_TO_USE" ]; then
           echo "❌ No commit SHA provided"
