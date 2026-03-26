@@ -33,7 +33,7 @@ steps:
         apt-get install -y jq >/dev/null
 
         # 👇 Use manual override if provided
-        COMMIT_TO_USE=${_COMMIT_SHA:-$COMMIT_SHA}
+        COMMIT_TO_USE=$${_COMMIT_SHA:-$COMMIT_SHA}
 
         if [ -z "$COMMIT_TO_USE" ]; then
           echo "❌ No commit SHA provided"
