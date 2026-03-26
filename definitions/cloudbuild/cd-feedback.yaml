@@ -33,24 +33,24 @@ steps:
         apt-get install -y jq >/dev/null
 
         # 👇 Use manual override if provided        
-        if [ -n "$_COMMIT_SHA" ]; then
-          COMMIT_TO_USE="$_COMMIT_SHA"
-        else
-          COMMIT_TO_USE="$COMMIT_SHA"
-        fi
+        # if [ -n "$_COMMIT_SHA" ]; then
+        #   COMMIT_TO_USE="$_COMMIT_SHA"
+        # else
+        #   COMMIT_TO_USE="$COMMIT_SHA"
+        # fi
 
 
-        if [ -z "$COMMIT_TO_USE" ]; then
-          echo "❌ No commit SHA provided"
-          exit 1
-        fi
+        # if [ -z "$COMMIT_TO_USE" ]; then
+        #   echo "❌ No commit SHA provided"
+        #   exit 1
+        # fi
 
-        echo "🔍 Using commit: $COMMIT_TO_USE"
+        # echo "🔍 Using commit: $COMMIT_TO_USE"
 
         RESPONSE=$(curl -s \
           -H "Authorization: token $GITHUB_TOKEN" \
           -H "Accept: application/vnd.github+json" \
-          https://api.github.com/repos/${_OWNER}/${_REPO}/commits/$COMMIT_TO_USE/pulls)
+          https://api.github.com/repos/${_OWNER}/${_REPO}/commits/${_COMMIT_SHA}/pulls)
 
         PR_NUMBER=$(echo "$RESPONSE" | jq -r '.[] | select(.merged_at != null) | .number' | head -n1)
 
@@ -66,7 +66,7 @@ steps:
           -H "Accept: application/vnd.github+json" \
           https://api.github.com/repos/${_OWNER}/${_REPO}/issues/$PR_NUMBER/comments \
           -d "{
-            \"body\": \"🧪 Test Deployment (manual run) ✅\n\nCommit: $FINAL_COMMIT_SHA\"
+            \"body\": \"🧪 Test Deployment (manual run) ✅\n\nCommit: ${_COMMIT_SHA}\"
           }"
 
 availableSecrets:
