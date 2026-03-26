@@ -36,11 +36,11 @@ steps:
           https://api.github.com/repos/${_OWNER}/${_REPO}/commits/${_COMMIT_SHA}/pulls)
 
         PR_NUMBER=$(echo "$$RESPONSE" | python3 -c "
-import sys, json
-data = json.load(sys.stdin)
-merged = [pr['number'] for pr in data if pr.get('merged_at') is not None]
-print(merged[0] if merged else '')
-          ")
+      import sys, json
+      data = json.load(sys.stdin)
+      merged = [pr['number'] for pr in data if pr.get('merged_at') is not None]
+      print(merged[0] if merged else '')
+      ")
 
         if [ -z "$$PR_NUMBER" ] || [ "$$PR_NUMBER" = "null" ]; then
           echo "⚠️ No PR found, skipping comment"
