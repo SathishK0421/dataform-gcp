@@ -23,7 +23,7 @@ steps:
   - name: 'ubuntu'
     id: "Comment on PR"
     entrypoint: bash
-    secretEnv: ['DATAFORM_CREDENTIALS_JSON', 'GCP_SA_KEY','GITHUB_TOKEN']
+    secretEnv: ['DATAFORM_CREDENTIALS_JSON', 'GCP_SA_KEY','TOKN']
     args:
       - -c
       - |
@@ -33,7 +33,7 @@ steps:
         apt-get install -y jq >/dev/null
 
         RESPONSE=$(curl -s \
-          -H "Authorization: token $GITHUB_TOKEN" \
+          -H "Authorization: token $TOKN" \
           -H "Accept: application/vnd.github+json" \
           https://api.github.com/repos/${_OWNER}/${_REPO}/commits/${_COMMIT_SHA}/pulls)
 
@@ -47,7 +47,7 @@ steps:
         echo "✅ Found PR: #$PR_NUMBER"
 
         curl -s -X POST \
-          -H "Authorization: token $GITHUB_TOKEN" \
+          -H "Authorization: token $TOKN" \
           -H "Accept: application/vnd.github+json" \
           https://api.github.com/repos/${_OWNER}/${_REPO}/issues/$PR_NUMBER/comments \
           -d "{
@@ -61,7 +61,7 @@ availableSecrets:
     - versionName: projects/50822209723/secrets/df-credentials-sa/versions/latest
       env: GCP_SA_KEY
     - versionName: projects/50822209723/secrets/dataform_GCP/versions/latest
-      env: GITHUB_TOKEN
+      env: TOKN
 
 options:
   logging: CLOUD_LOGGING_ONLY
