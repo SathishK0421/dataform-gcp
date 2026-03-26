@@ -2,6 +2,5 @@ config {
     type: "declaration",
     database: "sapanalytics-309913",
     schema: "sales_cdc_dev",
-    name: "ZBT_UTIL_MAPPING"
+    name: "FACT_MDRP_GAS_ACCTG"
 }
-

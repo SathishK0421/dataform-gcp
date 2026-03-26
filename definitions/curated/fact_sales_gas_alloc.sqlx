@@ -1,0 +1,48 @@
+config {
+    type: "incremental",
+    name: "fact_sales_gas_alloc_poc",
+    tags: ["sales_gas_alloc"],
+    description: "",
+    schema: dataform.projectConfig.vars.env === "prod" ?
+        "sales_curated_prod" : dataform.projectConfig.vars.env === "staging" ?
+        "sales_curated_stg" : "sales_curated_dev"
+}
+
+SELECT
+  BPARTNER,
+  BUS_AREA,
+  CACONT_ACC,
+  COMP_CODE,
+  COSTCENTER,
+  COUNTRY,
+  CURRENCY,
+  DATEFROM,
+  DATETO,
+  DIVISION,
+  PSTNG_DATE,
+  REGION,
+  CAST(UCCNTRCNT AS DECIMAL) AS UCCNTRCNT,
+  CAST(UCCONT_CNT AS DECIMAL) AS UCCONT_CNT,
+  UCMOVEIN_D,
+  UCMOVEOUTD,
+  UCPORTION,
+  UNIT,
+  CAST(VAR_VR AS DECIMAL) AS VAR_VR,
+  ZUCBILDOC,
+  ZUCCUSSEG,
+  ZUCDOCINV,
+  ZUCRECKEY,
+  UC_DATEFRO,
+  UC_DATETO,
+  CALMONTH,
+  NULL AS ZZ_FRACTION,
+  ZUCCALEG2,
+  CAST(ZGASQTY AS DECIMAL) AS ZGASQTY,
+  CAST(ZGASLQTY AS DECIMAL) AS ZGASLQTY,
+  ZGAS_UOM,
+  ZGASL_UOM,
+  CAST(ZGASAMT AS DECIMAL) AS ZGASAMT,
+  CAST(ZEDMQTY AS DECIMAL) AS ZEDMQTY,
+  CAST(ZEDMAMT AS DECIMAL) AS ZEDMAMT
+FROM
+  ${ref("uc_sales_stats_prepared")}
