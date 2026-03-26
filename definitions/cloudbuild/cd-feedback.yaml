@@ -19,7 +19,7 @@ steps:
   # -----------------------------
   # PR Comment Step
   # -----------------------------
-  - name: 'ubuntu'
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: "Comment on PR"
     entrypoint: bash
     # Inject secrets here, not substitutions
@@ -28,10 +28,6 @@ steps:
       - -c
       - |
         set -e
-
-        # Install jq
-        apt-get update -y >/dev/null
-        apt-get install -y jq >/dev/null
 
         # Fetch PR info
         RESPONSE=$(curl -s \
