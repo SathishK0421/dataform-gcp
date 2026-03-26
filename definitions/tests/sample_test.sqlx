@@ -1,0 +1,3 @@
+config { type: "assertion" }
+-- This query must return 0 rows to pass
+SELECT 1 WHERE 1 = 0

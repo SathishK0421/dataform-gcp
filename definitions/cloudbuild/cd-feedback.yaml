@@ -4,40 +4,17 @@ substitutions:
   _COMMIT_SHA: ""   # optional override
 
 steps:
-  - name: 'node:18'
-    id: 'Install Dependencies'
+  # -----------------------------
+  # Test step (optional)
+  # -----------------------------
+  - name: 'ubuntu'
+    id: "Debug inputs"
     entrypoint: bash
-    secretEnv: ['DATAFORM_CREDENTIALS_JSON', 'GCP_SA_KEY']
     args:
       - -c
       - |
-        echo "$$DATAFORM_CREDENTIALS_JSON" > /workspace/.df-credentials.json
-        echo "$$GCP_SA_KEY" > /workspace/sa-key.json
-        cd /workspace
-        npm ci
-        npx @dataform/cli@3.0.48 install
-
-  - name: 'node:18'
-    id: 'Compile'
-    entrypoint: bash
-    env:
-      - 'GOOGLE_APPLICATION_CREDENTIALS=/workspace/sa-key.json'
-    args:
-      - -c
-      - |
-        cd /workspace
-        npx @dataform/cli@3.0.48 compile --vars='{"env":"dev"}'
-
-  - name: 'node:18'
-    id: 'Run'
-    entrypoint: bash
-    env:
-      - 'GOOGLE_APPLICATION_CREDENTIALS=/workspace/sa-key.json'
-    args:
-      - -c
-      - |
-        cd /workspace
-        npx @dataform/cli@3.0.48 run --vars='{"env":"dev"}'
+        echo "COMMIT_SHA (default): $COMMIT_SHA"
+        echo "_COMMIT_SHA (manual): ${_COMMIT_SHA}"
 
   # -----------------------------
   # PR Comment Step
@@ -80,7 +57,6 @@ steps:
           -d "{
             \"body\": \"🧪 Deployment run completed successfully ✅\n\nCommit: ${_COMMIT_SHA}\"
           }"
-
 
 availableSecrets:
   secretManager:

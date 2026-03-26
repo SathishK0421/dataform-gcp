@@ -1,11 +1,11 @@
 config {
-    type: "table",
+    type: "incremental",
     name: "fact_sales_gas_alloc_poc",
-    tags: ["final_fact", 'fact_gen'],
+    tags: ["sales_gas_alloc"],
     description: "",
     schema: dataform.projectConfig.vars.env === "prod" ?
-        "sales_poc_prod" : dataform.projectConfig.vars.env === "staging" ?
-        "sales_poc_stg" : "sales_poc_dev"
+        "sales_curated_prod" : dataform.projectConfig.vars.env === "staging" ?
+        "sales_curated_stg" : "sales_curated_dev"
 }
 
 SELECT
