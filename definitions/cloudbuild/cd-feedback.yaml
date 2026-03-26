@@ -23,7 +23,7 @@ steps:
   - name: 'ubuntu'
     id: "Comment on PR"
     entrypoint: bash
-    secretEnv: ["GITHUB_TOKEN"]
+    secretEnv: ['DATAFORM_CREDENTIALS_JSON', 'GCP_SA_KEY','GITHUB_TOKEN']
     args:
       - -c
       - |
@@ -60,6 +60,8 @@ availableSecrets:
       env: DATAFORM_CREDENTIALS_JSON
     - versionName: projects/50822209723/secrets/df-credentials-sa/versions/latest
       env: GCP_SA_KEY
+    - versionName: projects/50822209723/secrets/dataform_GCP/versions/latest
+      env: GITHUB_TOKEN
 
 options:
   logging: CLOUD_LOGGING_ONLY
