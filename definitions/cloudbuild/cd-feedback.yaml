@@ -1,7 +1,7 @@
-substitutions:
-  _OWNER: your-org
-  _REPO: your-repo
-  _COMMIT_SHA: ""   # optional override
+# substitutions:
+#   _OWNER: your-org
+#   _REPO: your-repo
+#   _COMMIT_SHA: ""   # optional override
 
 steps:
   # -----------------------------
