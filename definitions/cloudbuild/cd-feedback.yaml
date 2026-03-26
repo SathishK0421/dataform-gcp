@@ -19,7 +19,7 @@ steps:
   # -----------------------------
   # PR Comment Step
   # -----------------------------
-  - name:'ubuntu'
+  - name: 'ubuntu'
     id: "Comment on PR"
     entrypoint: bash
     secretEnv: ["GITHUB_TOKEN"]
@@ -59,14 +59,11 @@ steps:
           -H "Authorization: token $GITHUB_TOKEN" \
           -H "Accept: application/vnd.github+json" \
           https://api.github.com/repos/${_OWNER}/${_REPO}/issues/$PR_NUMBER/comments \
-          -d "{
-            \"body\": \"🧪 Test Deployment (manual run) ✅\n\nCommit: $FINAL_COMMIT_SHA\"
-          }"
-
-availableSecrets:
-  secretManager:
-    - versionName: projects/YOUR_PROJECT_ID/secrets/github-token/versions/latest
-      env: GITHUB_TOKEN
+          -d @- <<EOF
+{
+  "body": "🧪 Test Deployment (manual run) ✅\n\nCommit: $FINAL_COMMIT_SHA"
+}
+EOF
 
 availableSecrets:
   secretManager:
