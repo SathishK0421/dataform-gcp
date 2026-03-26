@@ -1,3 +1,8 @@
+substitutions:
+  _OWNER: ""
+  _REPO: ""
+  _COMMIT_SHA: ""   # optional override
+
 steps:
   - name: 'node:18'
     id: 'Install Dependencies'
@@ -34,12 +39,57 @@ steps:
         cd /workspace
         npx @dataform/cli@3.0.48 run --vars='{"env":"dev"}'
 
+  # -----------------------------
+  # PR Comment Step
+  # -----------------------------
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: "Comment on PR"
+    entrypoint: bash
+    # Inject secrets here, not substitutions
+    secretEnv: ['DATAFORM_CREDENTIALS_JSON', 'GCP_SA_KEY','TOKN']
+    args:
+      - -c
+      - |
+        set -e
+
+        # Fetch PR info
+        RESPONSE=$(curl -s \
+          -H "Authorization: token $$TOKN" \
+          -H "Accept: application/vnd.github+json" \
+          https://api.github.com/repos/${_OWNER}/${_REPO}/commits/${_COMMIT_SHA}/pulls)
+
+        PR_NUMBER=$(echo "$$RESPONSE" | python3 -c "
+        import sys, json
+        data = json.load(sys.stdin)
+        merged = [pr['number'] for pr in data if pr.get('merged_at') is not None]
+        print(merged[0] if merged else '')
+        ")
+
+        if [ -z "$$PR_NUMBER" ] || [ "$$PR_NUMBER" = "null" ]; then
+          echo "⚠️ No PR found, skipping comment"
+          exit 0
+        fi
+
+        echo "✅ Found PR: #$$PR_NUMBER"
+
+        # Post comment to PR
+        curl -s -X POST \
+          -H "Authorization: token $$TOKN" \
+          -H "Accept: application/vnd.github+json" \
+          https://api.github.com/repos/${_OWNER}/${_REPO}/issues/$$PR_NUMBER/comments \
+          -d "{
+            \"body\": \"🧪 Deployment run completed successfully ✅\n\nCommit: ${_COMMIT_SHA}\"
+          }"
+
+
 availableSecrets:
   secretManager:
     - versionName: projects/50822209723/secrets/dataform-project-config/versions/latest
       env: DATAFORM_CREDENTIALS_JSON
     - versionName: projects/50822209723/secrets/df-credentials-sa/versions/latest
       env: GCP_SA_KEY
+    - versionName: projects/50822209723/secrets/dataform_GCP/versions/latest
+      env: TOKN
 
 options:
   logging: CLOUD_LOGGING_ONLY

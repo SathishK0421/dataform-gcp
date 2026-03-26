@@ -55,7 +55,7 @@ steps:
           -H "Accept: application/vnd.github+json" \
           https://api.github.com/repos/${_OWNER}/${_REPO}/issues/$$PR_NUMBER/comments \
           -d "{
-            \"body\": \"🧪 Test Deployment (manual run) ✅\n\nCommit: ${_COMMIT_SHA}\"
+            \"body\": \"🧪 Deployment run completed successfully ✅\n\nCommit: ${_COMMIT_SHA}\"
           }"
 
 availableSecrets:
