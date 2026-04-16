@@ -1,0 +1,68 @@
+config {
+  type: "incremental",
+  schema: "sales_cdc_poc",
+  name: "ZTSOBJ_C",
+  uniqueKey: ["COMP_CODE", "DOC_TYPE", "SALESEMPLY"],
+  tags: ["bw_migration"]
+}
+
+-- MERGE load: key fields are COMP_CODE, DOC_TYPE, SALESEMPLY
+
+WITH
+  src_ZTSOBJ AS (
+    SELECT
+      COMP_CODE,
+      DOC_TYPE,
+      SALESEMPLY,
+      IMODOCCATR,
+      STAT_CURR,
+      S4SOLD_TO,
+      CPR_CREATE,
+      CUST_GRP1,
+      CRMSALORGX,
+      PR_CAT_SAL,
+      LOC_CURRCY,
+      AB_ITEM
+    FROM ${ref("ZTSOBJ")}
+  ),
+  staged_ZTSOBJ_C AS (
+    SELECT
+      -- Calculated_Column: nan AS 0FISCVARNT => NULL (nan treated as no source)
+      CAST(NULL AS STRING)     AS `0FISCVARNT`,
+      COALESCE(COMP_CODE, '') AS COMP_CODE,
+      COALESCE(DOC_TYPE, '')  AS DOC_TYPE,
+      COALESCE(SALESEMPLY, '') AS SALESEMPLY,
+      IMODOCCATR,
+      STAT_CURR,
+      S4SOLD_TO,
+      CPR_CREATE,
+      CUST_GRP1,
+      CRMSALORGX,
+      PR_CAT_SAL,
+      LOC_CURRCY,
+      -- Calculated_Column: nan AS 0FISCYEAR => NULL (nan treated as no source)
+      CAST(NULL AS STRING)     AS `0FISCYEAR`,
+      AB_ITEM,
+      -- Calculated_Column: 100.0 AS AMNT
+      CAST(100.0 AS NUMERIC)   AS AMNT
+    FROM src_ZTSOBJ
+  )
+SELECT
+  `0FISCVARNT`,
+  COMP_CODE,
+  DOC_TYPE,
+  SALESEMPLY,
+  IMODOCCATR,
+  STAT_CURR,
+  S4SOLD_TO,
+  CPR_CREATE,
+  CUST_GRP1,
+  CRMSALORGX,
+  PR_CAT_SAL,
+  LOC_CURRCY,
+  `0FISCYEAR`,
+  AB_ITEM,
+  AMNT
+FROM staged_ZTSOBJ_C
+-- INCREMENTAL NOTE: no timestamp column available for delta filter;
+-- full reload on every run. Add a WHERE clause when a delta key exists.

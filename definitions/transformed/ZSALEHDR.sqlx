@@ -1,0 +1,126 @@
+config {
+  type: "incremental",
+  schema: "sales_cdc_poc",
+  name: "ZSALEHDR",
+  uniqueKey: ["DOC_NUMBER"],
+  tags: ["bw_migration"]
+}
+
+-- MERGE load: key fields are DOC_NUMBER
+
+WITH
+  src_D_SD10 AS (
+    SELECT
+      COMP_CODE,
+      DOC_NUMBER,
+      QUOT_FROM,
+      QUOT_TO,
+      SOLD_TO,
+      SALESEMPLY,
+      LOC_CURRCY,
+      STAT_CURR,
+      SALES_OFF,
+      SALES_GRP,
+      SALESORG,
+      DISTR_CHAN,
+      IMODOCCAT,
+      GN_R3_SSY,
+      PARSE_DATE('%Y%m%d', CAST(`0CALDAY` AS STRING)) AS `0CALDAY`,
+      RECORDMODE
+    FROM ${ref("D_SD10")}
+  ),
+
+  -- LOOKUP: replace fiscper_stub with ${ref("REAL_TABLE_NAME")}
+  --         once the fiscal-period calendar table name is confirmed.
+  fiscper_stub AS (
+    SELECT
+      CAST(NULL AS STRING) AS FISCVARNT,
+      CAST(NULL AS DATE)   AS DATEFROM,
+      CAST(NULL AS DATE)   AS DATETO,
+      CAST(NULL AS STRING) AS `0FISCPER`,
+      CAST(NULL AS STRING) AS `0FISCYEAR`
+    WHERE FALSE
+  ),
+
+  mapped AS (
+    SELECT
+      s.FISCVARNT                                                        AS FISCVARNT,
+      s.DOC_NUMBER                                                       AS DOC_NUMBER,
+      s.COMP_CODE                                                        AS COMP_CODE,
+      s.QUOT_FROM                                                        AS QUOT_FROM,
+      s.QUOT_TO                                                          AS QUOT_TO,
+      s.SOLD_TO                                                          AS SOLD_TO,
+      s.SALESEMPLY                                                       AS SALESEMPLY,
+      s.LOC_CURRCY                                                       AS LOC_CURRCY,
+      s.STAT_CURR                                                        AS STAT_CURR,
+      s.SALES_OFF                                                        AS SALES_OFF,
+      s.SALES_GRP                                                        AS SALES_GRP,
+      s.SALESORG                                                         AS SALESORG,
+      s.DISTR_CHAN                                                       AS DISTR_CHAN,
+      s.IMODOCCAT                                                        AS IMODOCCAT,
+      s.GN_R3_SSY                                                        AS GN_R3_SSY,
+      -- Calculated: SO_H_CNT
+      IF(
+        s.RECORDMODE = 'R',
+        0,
+        IF(
+          s.IMODOCCAT = 'H' OR s.IMODOCCAT = 'K',
+          -1 * 1,  -- NEGATIVE(SO_H_CNT): source SO_H_CNT not directly available; using -1 * 1 as placeholder
+          1        -- SO_H_CNT: source SO_H_CNT not directly available; using 1 as placeholder
+        )
+      )                                                                  AS SO_H_CNT,
+      -- Calculated: 0CALDAY — already parsed in src_D_SD10
+      s.`0CALDAY`                                                        AS `0CALDAY`,
+      -- Calculated: 0FISCPER — LOOKUP TABLE FISCPER using FISCVARNT, 0CALDAY between DATEFROM and DATETO
+      fp.`0FISCPER`                                                      AS `0FISCPER`,
+      -- Calculated: 0FISCYEAR — LOOKUP TABLE FISCPER using FISCVARNT, 0CALDAY between DATEFROM and DATETO
+      fp.`0FISCYEAR`                                                     AS `0FISCYEAR`,
+      -- Calculated: ZIOKF_T1 = ABS(10 / 2)
+      ABS(SAFE_DIVIDE(10, 2))                                            AS ZIOKF_T1,
+      -- Calculated: ZIOC_GRP — nan
+      NULL                                                               AS ZIOC_GRP,
+      -- Calculated: ZSO_H_CNT = 15.000
+      CAST(15.000 AS NUMERIC)                                            AS ZSO_H_CNT,
+      -- Calculated: GN_CUSTOM
+      IF(
+        (s.SOLD_TO IS NULL OR s.SOLD_TO = '' OR s.SOLD_TO = '0'),
+        '',
+        IF(
+          SAFE_CAST(s.SOLD_TO AS INT64) IS NOT NULL
+            AND REGEXP_REPLACE(CAST(s.SOLD_TO AS STRING), r'^\s+|\s+$', '') != ''
+            AND CAST(s.SOLD_TO AS STRING) NOT LIKE '%[^0-9]%'
+
+SELECT
+  FISCVARNT,
+  DOC_NUMBER,
+  COMP_CODE,
+  QUOT_FROM,
+  QUOT_TO,
+  SOLD_TO,
+  SALESEMPLY,
+  LOC_CURRCY,
+  STAT_CURR,
+  SALES_OFF,
+  SALES_GRP,
+  SALESORG,
+  DISTR_CHAN,
+  IMODOCCAT,
+  GN_R3_SSY,
+  SO_H_CNT,
+  `0CALDAY`,
+  `0FISCPER`,
+  `0FISCYEAR`,
+  ZIOKF_T1,
+  ZIOC_GRP,
+  ZSO_H_CNT,
+  GN_CUSTOM,
+  DEB_CRED,
+  DOC_CLASS,
+  HEADER_DEL,
+  DLT_H_CNT,
+  nan_1  AS nan,
+  nan_2  AS nan
+FROM mapped
+${when(incremental(), `WHERE \`0CALDAY\` > (
+    SELECT MAX(\`0CALDAY\`) FROM ${self()}
+)`)}

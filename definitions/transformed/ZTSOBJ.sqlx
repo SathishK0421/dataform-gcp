@@ -1,0 +1,75 @@
+config {
+  type: "incremental",
+  schema: "sales_cdc_poc",
+  name: "ZOF1_SAI",
+  tags: ["bw_migration"]
+}
+
+-- FullLoad: full table replacement on every Dataform run.
+
+-- LOOKUP: replace fiscper_stub with ${ref("REAL_TABLE_NAME")}
+--         once the fiscal-period calendar table name is confirmed.
+
+WITH
+  fiscper_stub AS (
+    SELECT
+      CAST(NULL AS STRING) AS FISCVARNT,
+      CAST(NULL AS DATE)   AS DATEFROM,
+      CAST(NULL AS DATE)   AS DATETO,
+      CAST(NULL AS STRING) AS `0FISCPER`,
+      CAST(NULL AS STRING) AS CHRT_ACCTS
+    WHERE FALSE
+  ),
+
+  src_0FI_GL_4 AS (
+    SELECT
+      FISCVAR,
+      BUKRS,
+      CAST(FISCPER AS STRING)    AS FISCPER,
+      KOSTL,
+      AUFNR,
+      LCURR,
+      PRCTR,
+      KOKRS,
+      WERKS,
+      BELNR
+    FROM ${ref("0FI_GL_4")}
+  ),
+
+  mapped_ZOF1_SAI AS (
+    SELECT
+      -- Calculated_Column: nan AS 0FISCVARNT — no source mapping defined
+      NULL                      AS `0FISCVARNT`,
+      s.BUKRS                   AS COMP_CODE,
+      -- Calculated_Column: LOOKUP TABLE FISCPER using FISCVARNT, FISCPER between DATEFROM and DATETO AS 0FISCPER
+      COALESCE(fp.`0FISCPER`, s.FISCPER)
+                                AS `0FISCPER`,
+      -- Calculated_Column: nan AS CHRT_ACCTS — no source mapping defined
+      COALESCE(fp.CHRT_ACCTS, NULL)
+                                AS CHRT_ACCTS,
+      s.KOSTL                   AS COSTCENTER,
+      s.AUFNR                   AS COORDER,
+      s.LCURR                   AS CURRENCY,
+      s.PRCTR                   AS PROFIT_CTR,
+      s.KOKRS                   AS CO_AREA,
+      s.WERKS                   AS PLANT,
+      s.BELNR                   AS DOC_NUM
+    FROM src_0FI_GL_4 s
+    LEFT JOIN fiscper_stub fp
+      ON s.FISCVAR  = fp.FISCVARNT
+  )
+
+SELECT
+  `0FISCVARNT`,
+  COMP_CODE,
+  `0FISCPER`,
+  CHRT_ACCTS,
+  COSTCENTER,
+  COORDER,
+  CURRENCY,
+  PROFIT_CTR,
+  CO_AREA,
+  PLANT,
+  DOC_NUM,
+  nan
+FROM mapped_ZOF1_SAI
