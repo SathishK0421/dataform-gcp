@@ -23,7 +23,7 @@ WITH
       PR_CAT_SAL,
       LOC_CURRCY,
       AB_ITEM
-    FROM ${ref("ZTSOBJ")}
+    FROM ${ref("sales_cdc_poc","ZTSOBJ")}
   ),
   staged_ZTSOBJ_C AS (
     SELECT

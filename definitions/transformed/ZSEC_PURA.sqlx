@@ -27,7 +27,7 @@ WITH
       NULL                        AS `0FISCYEAR`,
       AB_ITEM
     FROM
-      ${ref("ZTSOBJ_C")}
+      ${ref("sales_cdc_poc","ZTSOBJ_C")}
   )
 
 SELECT

@@ -2,6 +2,7 @@ config {
   type: "incremental",
   schema: "sales_cdc_poc",
   name: "ZSEC_PURB",
+  //dependencies: ["sales_cdc_poc.ZSEC_PURA"],
   uniqueKey: ["COMP_CODE", "DOC_TYPE", "SALESEMPLY"],
   tags: ["bw_migration"]
 }
@@ -24,7 +25,7 @@ WITH
       PR_CAT_SAL,
       LOC_CURRCY,
       AB_ITEM
-    FROM ${ref("ZSEC_PURA")}
+    FROM ${ref("sales_cdc_poc","ZSEC_PURA")}
   ),
   staged_ZSEC_PURB AS (
     SELECT

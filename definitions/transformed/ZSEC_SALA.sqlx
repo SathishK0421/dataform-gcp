@@ -26,7 +26,7 @@ WITH
       LOC_CURRCY,
       `0FISCYEAR`,
       AB_ITEM
-    FROM ${ref("ZTSOBJ_C")}
+    FROM ${ref("sales_cdc_poc","ZTSOBJ_C")}
   ),
 
   staged_ZSEC_SALA AS (

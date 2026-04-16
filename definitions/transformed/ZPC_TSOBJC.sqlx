@@ -29,7 +29,7 @@ src_0IED_ZTSOBJ AS (
         LOC_CURRCY,
         `0FISCVARNT`,
         `0FISCYEAR`
-    FROM ${ref("ZTSOBJ")}
+    FROM ${ref("sales_cdc_poc","ZTSOBJ")}
 ),
 
 staged_ZTSOBJ_C_0IED AS (
@@ -72,7 +72,7 @@ SELECT
     LOC_CURRCY,
     `0FISCVARNT`,
     `0FISCYEAR`
-FROM staged_ZTSOBJ_C_0IED;
+FROM staged_ZTSOBJ_C_0IED
 
 -- ============================================================
 -- Step 1 : ZSA_ITM  (ZNS_ITEM)
@@ -315,7 +315,7 @@ SELECT
   PLANT,
   BASIC_MATL,
   PLANTCAT
-FROM end_routine_ZSA_ITM;
+FROM end_routine_ZSA_ITM
 
 -- ============================================================
 -- Step 1 : ZSALEHDR  (IMO_D_SD10)
@@ -528,7 +528,7 @@ SELECT
   `0CALDAY`,
   BIC_ZIOC_GRP,
   FISCVARNT
-FROM end_routine_ZSALEHDR;
+FROM end_routine_ZSALEHDR
 
 -- ============================================================
 -- Step 1 : ZSEC_SALA  (ZTSOBJ_C)
@@ -554,7 +554,7 @@ WITH
       AB_ITEM,
       `0FISCVARNT`,
       `0FISCYEAR`
-    FROM ${ref("ZTSOBJ_C")}
+    FROM ${ref("sales_cdc_poc","ZTSOBJ_C")}
   ),
 
   staged_ZSEC_SALA_0O5H AS (
@@ -598,7 +598,7 @@ SELECT
   AB_ITEM,
   `0FISCVARNT`,
   `0FISCYEAR`
-FROM staged_ZSEC_SALA_0O5H;
+FROM staged_ZSEC_SALA_0O5H
 
 -- ============================================================
 -- Step 1 : ZOF1_SAI  (0FI_GL_4_S4HCLNT100)
@@ -723,7 +723,7 @@ SELECT
   `0FISCVARNT`,
   `0FISCPER`,
   CHRT_ACCTS
-FROM end_routine_ZOF1_SAI;
+FROM end_routine_ZOF1_SAI
 
 -- ============================================================
 -- Step 1 : ZSEC_PURA  (ZTSOBJ_C)
@@ -750,7 +750,7 @@ WITH
       AB_ITEM,
       `0FISCVARNT`,
       `0FISCYEAR`
-    FROM ${ref("ZTSOBJ_C")}
+    FROM ${ref("sales_cdc_poc","ZTSOBJ_C")}
   ),
 
   staged_ZSEC_PURA_0BAL AS (
@@ -794,7 +794,7 @@ SELECT
   AB_ITEM,
   `0FISCVARNT`,
   `0FISCYEAR`
-FROM staged_ZSEC_PURA_0BAL;
+FROM staged_ZSEC_PURA_0BAL
 
 -- ============================================================
 -- Step 1 : ZSEC_SALB  (ZSEC_SALA)
@@ -820,7 +820,7 @@ src_0FMJ_ZSEC_SALA AS (
         AB_ITEM,
         `0FISCVARNT`,
         `0FISCYEAR`
-    FROM ${ref("ZSEC_SALA")}
+    FROM ${ref("sales_cdc_poc","ZSEC_SALA")}
 ),
 
 staged_ZSEC_SALB_0FMJ AS (
@@ -864,7 +864,7 @@ SELECT
     AB_ITEM,
     `0FISCVARNT`,
     `0FISCYEAR`
-FROM staged_ZSEC_SALB_0FMJ;
+FROM staged_ZSEC_SALB_0FMJ
 
 -- ============================================================
 -- Step 1 : ZSEC_PURB  (ZSEC_PURA)
@@ -890,7 +890,7 @@ WITH
       AB_ITEM,
       `0FISCVARNT`,
       `0FISCYEAR`
-    FROM ${ref("ZSEC_PURA")}
+    FROM ${ref("sales_cdc_poc","ZSEC_PURA")}
   ),
 
   staged_ZSEC_PURB_04E7 AS (
@@ -937,7 +937,7 @@ SELECT
   AB_ITEM,
   `0FISCVARNT`,
   `0FISCYEAR`
-FROM staged_ZSEC_PURB_04E7;
+FROM staged_ZSEC_PURB_04E7
 
 -- ============================================================
 -- Step 1 : ZTSOBJ  (ZDS_HDR1)
@@ -1007,4 +1007,4 @@ SELECT
   LOC_CURRCY,
   `0FISCVARNT`,
   `0FISCYEAR`
-FROM staged_ZTSOBJ_0LMF;
+FROM staged_ZTSOBJ_0LMF

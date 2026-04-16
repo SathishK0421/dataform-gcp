@@ -2,5 +2,5 @@ config {
   type: "declaration",
   database: "sapanalytics-309913",
   schema: "sales_cdc_poc",
-  name: "ZSA_ITM"
+  name: "ZSA_ITM1"
 }
