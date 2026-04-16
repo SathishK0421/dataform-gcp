@@ -1,6 +1,0 @@
--- config {
---   type: "declaration",
---   database: "sapanalytics-309913",
---   schema: "sales_cdc_poc",
---   name: "ZSEC_SALA"
--- }

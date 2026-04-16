@@ -15,54 +15,39 @@ WITH
       DOC_TYPE,
       SALESEMPLY,
       IMODOCCATR,
-      STAT_CURR,
       S4SOLD_TO,
+      STAT_CURR,
       CPR_CREATE,
       CUST_GRP1,
-      CRMSALORGX,
-      PR_CAT_SAL,
-      LOC_CURRCY,
-      AB_ITEM
-    FROM ${ref("sales_cdc_poc","ZTSOBJ")}
-  ),
-  staged_ZTSOBJ_C AS (
-    SELECT
-      -- Calculated_Column: nan AS 0FISCVARNT => NULL (nan treated as no source)
-      CAST(NULL AS STRING)     AS `0FISCVARNT`,
-      COALESCE(COMP_CODE, '') AS COMP_CODE,
-      COALESCE(DOC_TYPE, '')  AS DOC_TYPE,
-      COALESCE(SALESEMPLY, '') AS SALESEMPLY,
-      IMODOCCATR,
-      STAT_CURR,
-      S4SOLD_TO,
-      CPR_CREATE,
-      CUST_GRP1,
-      CRMSALORGX,
-      PR_CAT_SAL,
-      LOC_CURRCY,
-      -- Calculated_Column: nan AS 0FISCYEAR => NULL (nan treated as no source)
-      CAST(NULL AS STRING)     AS `0FISCYEAR`,
       AB_ITEM,
-      -- Calculated_Column: 100.0 AS AMNT
-      CAST(100.0 AS NUMERIC)   AS AMNT
-    FROM src_ZTSOBJ
+      CRMSALORGX,
+      PR_CAT_SAL,
+      LOC_CURRCY,
+      `0FISCVARNT`,
+      `0FISCYEAR`,
+      CAST(AMNT AS NUMERIC(18,2)) AS AMNT
+    FROM ${ref("ZTSOBJ")}
   )
+
 SELECT
-  `0FISCVARNT`,
-  COMP_CODE,
-  DOC_TYPE,
-  SALESEMPLY,
-  IMODOCCATR,
-  STAT_CURR,
-  S4SOLD_TO,
-  CPR_CREATE,
-  CUST_GRP1,
-  CRMSALORGX,
-  PR_CAT_SAL,
-  LOC_CURRCY,
-  `0FISCYEAR`,
-  AB_ITEM,
-  AMNT
-FROM staged_ZTSOBJ_C
+  COALESCE(COMP_CODE, '')    AS COMP_CODE,
+  COALESCE(DOC_TYPE, '')     AS DOC_TYPE,
+  COALESCE(SALESEMPLY, '')   AS SALESEMPLY,
+  IMODOCCATR                 AS IMODOCCATR,
+  S4SOLD_TO                  AS S4SOLD_TO,
+  STAT_CURR                  AS STAT_CURR,
+  CPR_CREATE                 AS CPR_CREATE,
+  CUST_GRP1                  AS CUST_GRP1,
+  AB_ITEM                    AS AB_ITEM,
+  CRMSALORGX                 AS CRMSALORGX,
+  PR_CAT_SAL                 AS PR_CAT_SAL,
+  LOC_CURRCY                 AS LOC_CURRCY,
+  `0FISCVARNT`               AS `0FISCVARNT`,
+  `0FISCYEAR`                AS `0FISCYEAR`
+FROM src_ZTSOBJ
+${when(incremental(), `WHERE SALESEMPLY > (
+    SELECT MAX(SALESEMPLY) FROM ${self()}
+)`)}
 -- INCREMENTAL NOTE: no timestamp column available for delta filter;
--- full reload on every run. Add a WHERE clause when a delta key exists.
+-- SALESEMPLY used as a proxy sort key. Replace with a proper timestamp
+-- column (e.g. CPR_CREATE) when a reliable delta key is confirmed.

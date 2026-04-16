@@ -8,140 +8,149 @@ config {
 -- FullLoad: full table replacement on every Dataform run.
 
 WITH
-  src_zns_item AS (
-    SELECT
-      VBELN,
-      VOLEH,
-      VOLUM,
-      VDATU,
-      MEINS,
-      NETWR,
-      PERIV,
-      KZWI1,
-      KZWI2,
-      KZWI3,
-      KMEIN,
-      MATWA,
-      KPEIN,
-      MWSBP,
-      PKUNRG,
-      PSTYV,
-      PKUNWE,
-      WAERK,
-      NETPR,
-      HWAER,
-      NTGEW,
-      GEWEI,
-      UVFAK,
-      UVVLK,
-      BUKRS,
-      MATKL,
-      ERZET,
-      ERDAT,
-      MATNR,
-      STWAE,
-      LSMENG,
-      WERKS
-    FROM ${ref("ZNS_ITEM")}
-  ),
 
-  -- LOOKUP: join FISCPER lookup table to resolve 0FISCYEAR from PERIV and date range
-  fiscper_lookup AS (
-    -- LOOKUP: verify table name before deploying
-    SELECT
-      CAST(NULL AS STRING) AS FISCVARNT,
-      CAST(NULL AS STRING) AS PERIV,
-      CAST(NULL AS DATE)   AS DATEFROM,
-      CAST(NULL AS DATE)   AS DATETO,
-      CAST(NULL AS STRING) AS `0FISCYEAR`
-  ),
+-- START ROUTINE: filter out rows where MATNR = 'TG11' before any field-level mapping
+start_routine_ZNS_ITEM AS (
+  SELECT
+    VBELN,
+    VOLEH,
+    VOLUM,
+    VDATU,
+    MEINS,
+    KZWI1,
+    KZWI3,
+    KZWI2,
+    KPEIN,
+    MWSBP,
+    KMEIN,
+    MATWA,
+    PKUNRG,
+    PSTYV,
+    WAERK,
+    PKUNWE,
+    BUKRS,
+    MATKL,
+    NETPR,
+    HWAER,
+    NTGEW,
+    GEWEI,
+    UVFAK,
+    UVVLK,
+    MATNR,
+    STWAE,
+    ERZET,
+    ERDAT,
+    LSMENG,
+    WERKS,
+    NETWR
+  FROM ${ref("ZNS_ITEM")}
+  WHERE MATNR <> 'TG11'
+),
 
-  staged_zns_item AS (
-    SELECT
-      s.VBELN,
-      s.VOLEH,
-      s.VOLUM,
-      s.VDATU,
-      s.MEINS,
-      s.NETWR,
-      s.PERIV,
-      CAST(s.KZWI1 AS NUMERIC)              AS KZWI1,
-      CAST(s.KZWI2 AS NUMERIC)              AS KZWI2,
-      CAST(s.KZWI3 AS NUMERIC)              AS KZWI3,
-      s.KMEIN,
-      s.MATWA,
-      s.KPEIN,
-      CAST(s.MWSBP AS NUMERIC)              AS MWSBP,
-      s.PKUNRG,
-      s.PSTYV,
-      s.PKUNWE,
-      s.WAERK,
-      CAST(s.NETPR AS NUMERIC)              AS NETPR,
-      s.HWAER,
-      s.NTGEW,
-      s.GEWEI,
-      s.UVFAK,
-      s.UVVLK,
-      s.BUKRS,
-      s.MATKL,
-      s.ERZET,
-      s.ERDAT,
-      s.MATNR,
-      s.STWAE,
-      s.LSMENG,
-      s.WERKS,
-      -- Calculated: NETWR * 10 AS NETVALUE
-      CAST(s.NETWR AS NUMERIC) * 10         AS calc_NETVALUE,
-      -- Calculated: LOOKUP TABLE FISCPER using FISCVARNT, PERIV between DATEFROM and DATETO AS 0FISCYEAR
-      fl.`0FISCYEAR`                        AS calc_0FISCYEAR,
-      -- Calculated: SOURCE & TARGET FIELD SAME, NO LOGIC REQUIRED AS 0FISCVARNT
-      fl.FISCVARNT                          AS calc_0FISCVARNT
-    FROM src_zns_item s
-    LEFT JOIN fiscper_lookup fl
-      ON fl.PERIV = s.PERIV
-      AND s.VDATU BETWEEN fl.DATEFROM AND fl.DATETO
-  ),
+-- LOOKUP: replace fiscper_stub with ${ref("REAL_TABLE_NAME")}
+--         once the fiscal-period calendar table name is confirmed.
+-- LOOKUP TABLE FISCPER using FISCVARNT, PERIV between DATEFROM and DATETO AS 0FISCYEAR
+fiscper_stub AS (
+  -- TODO: fiscal-period calendar table name not present in spec; verify and replace this stub with the real table.
+  -- When real table is known, replace with: FROM ${ref('REAL_TABLE_NAME')}
+  SELECT
+    CAST(NULL AS STRING) AS FISCVARNT,
+    CAST(NULL AS DATE)   AS DATEFROM,
+    CAST(NULL AS DATE)   AS DATETO,
+    CAST(NULL AS STRING) AS FISCPER,
+    CAST(NULL AS STRING) AS FISCYEAR
+  WHERE FALSE
+),
 
-  mapped_zsa_itm AS (
-    SELECT
-      VBELN                             AS IMODOCCATR,
-      VOLEH                             AS VOLUMEUNIT,
-      VOLUM                             AS VOLUME,
-      PARSE_DATE('%Y%m%d', VDATU)       AS UPD_DATE,
-      MEINS                             AS BASE_UOM,
-      calc_NETVALUE                     AS NETVALUE,
-      calc_0FISCYEAR                    AS `0FISCYEAR`,
-      KZWI1                             AS SUBTOT_OC1,
-      KZWI2                             AS SUBTOT_OC2,
-      KZWI3                             AS SUBTOT_OC3,
-      KMEIN                             AS UNIT,
-      MATWA                             AS MATENTERD,
-      KPEIN                             AS COND_PR_UN,
-      MWSBP                             AS TAX_VALUE,
-      PKUNRG                            AS PAYER,
-      PSTYV                             AS ITM_CAT,
-      PKUNWE                            AS S4SHIP_TO,
-      WAERK                             AS DOC_CURRCY,
-      NETPR                             AS NETPRICE,
-      HWAER                             AS LOC_CURRCY,
-      NTGEW                             AS NET_WGT_DL,
-      GEWEI                             AS UNIT_OF_WT,
-      UVFAK                             AS AB_ITEM,
-      UVVLK                             AS DELIV_ITEM,
-      BUKRS                             AS COMP_CODE,
-      MATKL                             AS MATL_GROUP,
-      ERZET                             AS TIME,
-      PARSE_DATE('%Y%m%d', ERDAT)       AS CR_ON_I,
-      MATNR                             AS BASIC_MATL,
-      STWAE                             AS STAT_CURR,
-      calc_0FISCVARNT                   AS `0FISCVARNT`,
-      LSMENG                            AS REQDEKIQUANTY,
-      -- PLANTCAT: second mapping of WERKS to PLANTCAT
-      WERKS                             AS PLANTCAT,
-      WERKS                             AS PLANT,
-      NULL                              AS nan -- no source mapping defined
-    FROM staged_zns_item
-  )
+-- Field-level mappings applied to start-routine-filtered source
+mapped_ZSA_ITM AS (
+  SELECT
+    s.VBELN                                        AS IMODOCCATR,
+    s.VOLEH                                        AS VOLUMEUNIT,
+    s.VOLUM                                        AS VOLUME,
+    PARSE_DATE('%Y%m%d', s.VDATU)                  AS UPD_DATE,
+    s.MEINS                                        AS BASE_UOM,
+    CAST(s.KZWI1 AS NUMERIC)                       AS SUBTOT_OC1,
+    CAST(s.KZWI3 AS NUMERIC)                       AS SUBTOT_OC3,
+    CAST(s.KZWI2 AS NUMERIC)                       AS SUBTOT_OC2,
+    s.KPEIN                                        AS COND_PR_UN,
+    CAST(s.MWSBP AS NUMERIC)                       AS TAX_VALUE,
+    s.KMEIN                                        AS UNIT,
+    s.MATWA                                        AS MATENTERD,
+    s.PKUNRG                                       AS PAYER,
+    s.PSTYV                                        AS ITM_CAT,
+    s.WAERK                                        AS DOC_CURRCY,
+    s.PKUNWE                                       AS S4SHIP_TO,
+    s.BUKRS                                        AS COMP_CODE,
+    s.MATKL                                        AS MATL_GROUP,
+    CAST(s.NETPR AS NUMERIC)                       AS NETPRICE,
+    s.HWAER                                        AS LOC_CURRCY,
+    CAST(s.NTGEW AS NUMERIC)                       AS NET_WGT_DL,
+    s.GEWEI                                        AS UNIT_OF_WT,
+    s.UVFAK                                        AS AB_ITEM,
+    s.UVVLK                                        AS DELIV_ITEM,
+    s.MATNR                                        AS BIC_ZMATEIAL1,
+    s.STWAE                                        AS STAT_CURR,
+    s.ERZET                                        AS TIME,
+    PARSE_DATE('%Y%m%d', s.ERDAT)                  AS CR_ON_I,
+    s.LSMENG                                       AS REQDEKIQUANTY,
+    s.WERKS                                        AS PLANT,
+    s.MATNR                                        AS BASIC_MATL,
+    s.WERKS                                        AS PLANTCAT,
+    -- SOURCE & TARGET FIELD SAME, NO LOGIC REQUIRED AS 0FISCVARNT
+    s.STWAE                                        AS `0FISCVARNT`,
+    -- LOOKUP: FISCYEAR derived from fiscper_stub; replace stub with real table when available
+    fp.FISCYEAR                                    AS `0FISCYEAR`,
+    -- NETVALUE = NETWR * 10
+    CAST(s.NETWR AS NUMERIC(18,2)) * 10            AS NETVALUE
+  FROM start_routine_ZNS_ITEM s
+  LEFT JOIN fiscper_stub fp
+    ON s.STWAE = fp.FISCVARNT
+    AND PARSE_DATE('%Y%m%d', s.VDATU) BETWEEN fp.DATEFROM AND fp.DATETO
+),
+
+-- END ROUTINE: post-process mapped output — update PLANT from '1710' to '1720'
+-- Operates on TARGET column names (PLANT)
+end_routine_ZSA_ITM AS (
+  SELECT
+    IMODOCCATR,
+    VOLUMEUNIT,
+    VOLUME,
+    UPD_DATE,
+    BASE_UOM,
+    SUBTOT_OC1,
+    SUBTOT_OC3,
+    SUBTOT_OC2,
+    COND_PR_UN,
+    TAX_VALUE,
+    UNIT,
+    MATENTERD,
+    PAYER,
+    ITM_CAT,
+    DOC_CURRCY,
+    S4SHIP_TO,
+    COMP_CODE,
+    MATL_GROUP,
+    NETPRICE,
+    LOC_CURRCY,
+    NET_WGT_DL,
+    UNIT_OF_WT,
+    AB_ITEM,
+    DELIV_ITEM,
+    BIC_ZMATEIAL1,
+    STAT_CURR,
+    TIME,
+    CR_ON_I,
+    REQDEKIQUANTY,
+    -- END ROUTINE: if PLANT = '1710' then set PLANT = '1720'
+    CASE WHEN PLANT = '1710' THEN '1720' ELSE PLANT END AS PLANT,
+    BASIC_MATL,
+    PLANTCAT,
+    `0FISCVARNT`,
+    `0FISCYEAR`,
+    NETVALUE
+  FROM mapped_ZSA_ITM
+)
 
 SELECT
   IMODOCCATR,
@@ -149,35 +158,34 @@ SELECT
   VOLUME,
   UPD_DATE,
   BASE_UOM,
-  NETVALUE,
-  `0FISCYEAR`,
   SUBTOT_OC1,
-  SUBTOT_OC2,
   SUBTOT_OC3,
-  UNIT,
-  MATENTERD,
+  SUBTOT_OC2,
   COND_PR_UN,
   TAX_VALUE,
+  UNIT,
+  MATENTERD,
   PAYER,
   ITM_CAT,
-  S4SHIP_TO,
   DOC_CURRCY,
+  S4SHIP_TO,
+  COMP_CODE,
+  MATL_GROUP,
   NETPRICE,
   LOC_CURRCY,
   NET_WGT_DL,
   UNIT_OF_WT,
   AB_ITEM,
   DELIV_ITEM,
-  COMP_CODE,
-  MATL_GROUP,
+  BIC_ZMATEIAL1,
+  STAT_CURR,
   TIME,
   CR_ON_I,
-  ZMATEIAL1,
-  STAT_CURR,
-  `0FISCVARNT`,
   REQDEKIQUANTY,
+  PLANT,
   BASIC_MATL,
   PLANTCAT,
-  PLANT,
-  nan
-FROM mapped_zsa_itm
+  `0FISCVARNT`,
+  `0FISCYEAR`,
+  NETVALUE
+FROM end_routine_ZSA_ITM

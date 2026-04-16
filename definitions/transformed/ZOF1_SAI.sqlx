@@ -8,78 +8,91 @@ config {
 -- FullLoad: full table replacement on every Dataform run.
 
 WITH
-  src_0fi_gl_4 AS (
-    SELECT
-      FISCVAR,
-      BUKRS,
-      FISCPER,
-      KOSTL,
-      AUFNR,
-      LCURR,
-      PRCTR,
-      KOKRS,
-      WERKS,
-      BELNR
-    FROM ${ref("0FI_GL_4")}
-  ),
 
-  -- LOOKUP: resolve 0FISCPER using a fiscal period calendar table
-  -- joining on FISCVARNT and checking FISCPER between DATEFROM and DATETO
-  lookup_fiscper AS (
-    -- LOOKUP: verify table name for fiscal period calendar before deploying
-    SELECT
-      s.FISCVAR,
-      s.BUKRS,
-      s.FISCPER,
-      s.KOSTL,
-      s.AUFNR,
-      s.LCURR,
-      s.PRCTR,
-      s.KOKRS,
-      s.WERKS,
-      s.BELNR,
-      CAST(NULL AS STRING) AS resolved_FISCPER
-    FROM ${ref("src_0fi_gl_4")} s
-    -- LEFT JOIN stub: replace with verified fiscal period calendar table name before deploying
-    -- LEFT JOIN ${ref("REAL_TABLE")} fp
-    --   ON s.FISCVAR = fp.FISCVARNT
-    --   AND s.FISCPER BETWEEN fp.DATEFROM AND fp.DATETO
-  ),
+-- START ROUTINE: filters out rows where BUKRS = '4900000061'
+start_routine_0FI_GL_4_S4HCLNT100 AS (
+  SELECT
+    BUKRS,
+    LCURR,
+    AUFNR,
+    KOSTL,
+    PRCTR,
+    BELNR,
+    WERKS,
+    KOKRS,
+    FISCVAR,
+    FISCPER,
+    BLDAT,
+    BUDAT,
+    HSSL,
+    KSSK
+  FROM ${ref("0FI_GL_4_S4HCLNT100")}
+  WHERE BUKRS <> '4900000061'
+),
 
-  mapped AS (
-    SELECT
-      -- Calculated_Column: nan AS 0FISCVARNT — no source mapping defined
-      NULL AS `0FISCVARNT`,
-      BUKRS AS COMP_CODE,
-      -- Calculated_Column: LOOKUP TABLE FISCPER using FISCVARNT, FISCPER between DATEFROM and DATETO AS 0FISCPER
-      COALESCE(resolved_FISCPER, CAST(`FISCPER` AS STRING)) AS `0FISCPER`,
-      -- Calculated_Column: nan AS CHRT_ACCTS — no source mapping defined
-      NULL AS CHRT_ACCTS,
-      KOSTL AS COSTCENTER,
-      AUFNR AS COORDER,
-      LCURR AS CURRENCY,
-      PRCTR AS PROFIT_CTR,
-      KOKRS AS CO_AREA,
-      WERKS AS PLANT,
-      BELNR AS DOC_NUM,
-      -- Target nan columns — no source mapping defined
-      NULL AS nan_1,
-      NULL AS nan_2
-    FROM lookup_fiscper
-  )
+-- LOOKUP: replace fiscper_stub with ${ref("REAL_TABLE_NAME")}
+--         once the fiscal-period calendar table name is confirmed.
+fiscper_stub AS (
+  SELECT
+    CAST(NULL AS STRING) AS FISCVARNT,
+    CAST(NULL AS DATE)   AS DATEFROM,
+    CAST(NULL AS DATE)   AS DATETO,
+    CAST(NULL AS STRING) AS `0FISCPER`
+  WHERE FALSE
+),
+
+mapped_ZOF1_SAI AS (
+  SELECT
+    s.BUKRS                                      AS COMP_CODE,
+    s.LCURR                                      AS CURRENCY,
+    s.AUFNR                                      AS COORDER,
+    s.KOSTL                                      AS COSTCENTER,
+    s.PRCTR                                      AS PROFIT_CTR,
+    s.BELNR                                      AS DOC_NUM,
+    s.WERKS                                      AS PLANT,
+    s.KOKRS                                      AS CO_AREA,
+    s.FISCVAR                                    AS `0FISCVARNT`,
+    COALESCE(fp.`0FISCPER`, NULL)                AS `0FISCPER`,
+    NULL                                         AS CHRT_ACCTS,  -- no source mapping defined
+    PARSE_DATE('%Y%m%d', s.BLDAT)                AS BLDAT,
+    PARSE_DATE('%Y%m%d', s.BUDAT)                AS BUDAT
+  FROM start_routine_0FI_GL_4_S4HCLNT100 s
+  LEFT JOIN fiscper_stub fp
+    ON s.FISCVAR = fp.FISCVARNT
+),
+
+-- END ROUTINE: replaces PROFIT_CTR value 'US10_PLR' with 'US10_nss'
+end_routine_ZOF1_SAI AS (
+  SELECT
+    COMP_CODE,
+    CURRENCY,
+    COORDER,
+    COSTCENTER,
+    CASE
+      WHEN PROFIT_CTR = 'US10_PLR' THEN 'US10_nss'
+      ELSE PROFIT_CTR
+    END                                          AS PROFIT_CTR,
+    DOC_NUM,
+    PLANT,
+    CO_AREA,
+    `0FISCVARNT`,
+    `0FISCPER`,
+    CHRT_ACCTS,
+    BLDAT,
+    BUDAT
+  FROM mapped_ZOF1_SAI
+)
 
 SELECT
-  `0FISCVARNT`,
   COMP_CODE,
-  `0FISCPER`,
-  CHRT_ACCTS,
-  COSTCENTER,
-  COORDER,
   CURRENCY,
+  COORDER,
+  COSTCENTER,
   PROFIT_CTR,
-  CO_AREA,
-  PLANT,
   DOC_NUM,
-  nan_1 AS nan,
-  nan_2 AS nan
-FROM mapped
+  PLANT,
+  CO_AREA,
+  `0FISCVARNT`,
+  `0FISCPER`,
+  CHRT_ACCTS
+FROM end_routine_ZOF1_SAI
