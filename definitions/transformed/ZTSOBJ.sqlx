@@ -23,9 +23,9 @@ WITH
       CRMSALORGX,
       PR_CAT_SAL,
       LOC_CURRCY,
-      `0FISCVARNT`,
-      `0FISCYEAR`
-    FROM ${ref("ZDS_HDR1")}
+      FISCVARNT,     ----- updated to remvoe the 0
+      FISCYEAR,
+    FROM ${ref("ZDS_HDR1_BQ")}
     ${when(incremental(), `WHERE CPR_CREATE > (
       SELECT MAX(CPR_CREATE) FROM ${self()}
     )`)}
@@ -44,6 +44,6 @@ SELECT
   CRMSALORGX       AS CRMSALORGX,
   PR_CAT_SAL       AS PR_CAT_SAL,
   LOC_CURRCY       AS LOC_CURRCY,
-  `0FISCVARNT`     AS `0FISCVARNT`,
-  `0FISCYEAR`      AS `0FISCYEAR`
+  FISCVARNT       AS FISCVARNT,
+  FISCYEAR        AS FISCYEAR --- updated to remvoe the 0
 FROM src_ZDS_HDR1

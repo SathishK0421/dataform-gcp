@@ -23,9 +23,8 @@ WITH
       CRMSALORGX,
       PR_CAT_SAL,
       LOC_CURRCY,
-      `0FISCVARNT`,
-      `0FISCYEAR`,
-      CAST(AMNT AS NUMERIC(18,2)) AS AMNT
+      FISCVARNT,
+      FISCYEAR,
     FROM ${ref("ZTSOBJ")}
   )
 
@@ -42,8 +41,8 @@ SELECT
   CRMSALORGX                 AS CRMSALORGX,
   PR_CAT_SAL                 AS PR_CAT_SAL,
   LOC_CURRCY                 AS LOC_CURRCY,
-  `0FISCVARNT`               AS `0FISCVARNT`,
-  `0FISCYEAR`                AS `0FISCYEAR`
+  FISCVARNT               AS FISCVARNT,
+  FISCYEAR                AS FISCYEAR
 FROM src_ZTSOBJ
 ${when(incremental(), `WHERE SALESEMPLY > (
     SELECT MAX(SALESEMPLY) FROM ${self()}

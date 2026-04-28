@@ -2,5 +2,5 @@ config {
   type: "declaration",
   database: "sapanalytics-309913",
   schema: "sales_raw_dev",
-  name: "ZDS_HDR1_BQ"
+  name: "FISCPER"
 }

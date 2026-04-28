@@ -14,7 +14,7 @@ WITH
       COMP_CODE,
       DOC_TYPE,
       SALESEMPLY,
-      AMNT,
+      --AMNT,
       STAT_CURR,
       IMODOCCATR,
       S4SOLD_TO,
@@ -24,8 +24,8 @@ WITH
       CRMSALORGX,
       PR_CAT_SAL,
       AB_ITEM,
-      `0FISCVARNT`,
-      `0FISCYEAR`
+      FISCVARNT, ----- updated to remvoe the 0
+      FISCYEAR
     FROM ${ref("ZTSOBJ_C")}
   )
 
@@ -33,7 +33,7 @@ SELECT
   COALESCE(COMP_CODE,  '')  AS COMP_CODE,
   COALESCE(DOC_TYPE,   '')  AS DOC_TYPE,
   COALESCE(SALESEMPLY, '')  AS SALESEMPLY,
-  AMNT,
+  --AMNT,
   STAT_CURR,
   IMODOCCATR,
   S4SOLD_TO,
@@ -43,8 +43,8 @@ SELECT
   CRMSALORGX,
   PR_CAT_SAL,
   AB_ITEM,
-  `0FISCVARNT`,
-  `0FISCYEAR`
+  FISCVARNT,  ----- updated to remvoe the 0
+  FISCYEAR
 FROM src_ZTSOBJ_C
 ${when(incremental(), `WHERE CPR_CREATE > (
     SELECT MAX(CPR_CREATE) FROM ${self()}

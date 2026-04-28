@@ -28,10 +28,10 @@ start_routine_D_SD10 AS (
     SALESORG,
     GN_R3_SSY,
     IMODOCCAT,
-    PARSE_DATE('%Y%m%d', `0CALDAY`) AS `0CALDAY`,
+    CALDAY,  --removed parse date function
     RECORDMODE,
     SO_H_CNT
-  FROM ${ref("D_SD10")}
+  FROM ${ref("D_SD10_BQ")}
   WHERE NOT (
     -- GN_CUSTOM is a calculated field; pre-filter equivalent based on source logic:
     -- GN_CUSTOM = IF(IS_INITIAL(SOLD_TO), '', IF(IS_INTEGER(SOLD_TO), GN_R3_SSY || ' 2CUS' || LTRIM(SOLD_TO,'0'), GN_R3_SSY || ' 2CUS' || SOLD_TO))
@@ -44,7 +44,7 @@ start_routine_D_SD10 AS (
         ELSE CONCAT(GN_R3_SSY, ' 2CUS', SOLD_TO)
       END = '2CUS10100001'
     )
-    AND SALESEMPLY = '00000024'
+    AND SALESEMPLY = 00000024
   )
 ),
 
@@ -60,7 +60,8 @@ fiscper_stub AS (
   -- TODO: Replace fiscper_stub with the appropriate ${ref('actual_table_name')} once the real table name is known,
   -- and correct the JOIN key from COMP_CODE to the actual FISCVARNT source column.
   -- Do NOT activate ${ref('REAL_TABLE_NAME')} — no real table by that name should exist downstream.
-  WHERE FALSE
+  FROM ${ref("FISCPER")}
+  
 ),
 
 mapped_ZSALEHDR AS (
@@ -80,7 +81,7 @@ mapped_ZSALEHDR AS (
     s.SALESORG                        AS SALESORG,
     s.GN_R3_SSY                       AS GN_R3_SSY,
     s.IMODOCCAT                       AS IMODOCCAT,
-    s.`0CALDAY`                       AS `0CALDAY`,
+    s.CALDAY                       AS CALDAY,
     -- COMP_CODE → BIC_ZIOC_GRP (second mapping of COMP_CODE)
     s.COMP_CODE                       AS BIC_ZIOC_GRP,
     -- COMP_CODE → FISCVARNT (third mapping of COMP_CODE; intentionally STRING, never cast to DATE or INT)
@@ -142,7 +143,7 @@ mapped_ZSALEHDR AS (
   FROM start_routine_D_SD10 s
   LEFT JOIN fiscper_stub fp
     ON fp.FISCVARNT = CAST(s.COMP_CODE AS STRING)
-    AND s.`0CALDAY` BETWEEN fp.DATEFROM AND fp.DATETO
+    AND s.CALDAY BETWEEN fp.DATEFROM AND fp.DATETO
 ),
 
 -- END ROUTINE: assigns UPD_DATE = CURRENT_DATE for every row in result package
@@ -163,7 +164,7 @@ end_routine_ZSALEHDR AS (
     SALESORG,
     GN_R3_SSY,
     IMODOCCAT,
-    `0CALDAY`,
+    CALDAY,
     BIC_ZIOC_GRP,
     FISCVARNT,
     `0FISCPER`,
@@ -196,7 +197,7 @@ SELECT
   SALESORG,
   GN_R3_SSY,
   IMODOCCAT,
-  `0CALDAY`,
+  CALDAY,
   BIC_ZIOC_GRP,
   FISCVARNT,
   `0FISCPER`,
@@ -211,6 +212,6 @@ SELECT
   DLT_H_CNT,
   UPD_DATE
 FROM end_routine_ZSALEHDR
-${when(incremental(), `WHERE \`0CALDAY\` > (
-    SELECT MAX(\`0CALDAY\`) FROM ${self()}
+${when(incremental(), `WHERE \`CALDAY\` > (
+    SELECT MAX(\`CALDAY\`) FROM ${self()}
 )`)}

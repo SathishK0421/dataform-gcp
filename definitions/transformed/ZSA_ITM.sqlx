@@ -43,7 +43,7 @@ start_routine_ZNS_ITEM AS (
     LSMENG,
     WERKS,
     NETWR
-  FROM ${ref("ZNS_ITEM")}
+  FROM ${ref("ZNS_ITEM_BQ")}
   WHERE MATNR <> 'TG11'
 ),
 
@@ -59,7 +59,9 @@ fiscper_stub AS (
     CAST(NULL AS DATE)   AS DATETO,
     CAST(NULL AS STRING) AS FISCPER,
     CAST(NULL AS STRING) AS FISCYEAR
-  WHERE FALSE
+   
+    FROM ${ref("FISCPER")}
+  -- WHERE FALSE
 ),
 
 -- Field-level mappings applied to start-routine-filtered source
@@ -102,7 +104,8 @@ mapped_ZSA_ITM AS (
     -- LOOKUP: FISCYEAR derived from fiscper_stub; replace stub with real table when available
     fp.FISCYEAR                                    AS `0FISCYEAR`,
     -- NETVALUE = NETWR * 10
-    CAST(s.NETWR AS NUMERIC(18,2)) * 10            AS NETVALUE
+    CAST(s.NETWR AS NUMERIC) * 10            AS NETVALUE
+    --CAST(s.NETWR AS NUMERIC (1,18)) * 10
   FROM start_routine_ZNS_ITEM s
   LEFT JOIN fiscper_stub fp
     ON s.STWAE = fp.FISCVARNT

@@ -14,7 +14,7 @@ WITH
       COMP_CODE,
       DOC_TYPE,
       SALESEMPLY,
-      AMNT,
+      --AMNT,
       STAT_CURR,
       IMODOCCATR,
       S4SOLD_TO,
@@ -24,8 +24,8 @@ WITH
       CRMSALORGX,
       PR_CAT_SAL,
       AB_ITEM,
-      `0FISCVARNT`,
-      `0FISCYEAR`
+      FISCVARNT,
+      FISCYEAR
     FROM ${ref("ZSEC_SALA")}
   )
 
@@ -33,7 +33,7 @@ SELECT
   COALESCE(COMP_CODE, '')    AS COMP_CODE,
   COALESCE(DOC_TYPE, '')     AS DOC_TYPE,
   COALESCE(SALESEMPLY, '')   AS SALESEMPLY,
-  AMNT                       AS AMNT,
+  --AMNT                       AS AMNT,
   STAT_CURR                  AS STAT_CURR,
   IMODOCCATR                 AS IMODOCCATR,
   S4SOLD_TO                  AS S4SOLD_TO,
@@ -43,8 +43,8 @@ SELECT
   CRMSALORGX                 AS CRMSALORGX,
   PR_CAT_SAL                 AS PR_CAT_SAL,
   AB_ITEM                    AS AB_ITEM,
-  `0FISCVARNT`               AS `0FISCVARNT`,
-  `0FISCYEAR`                AS `0FISCYEAR`
+  FISCVARNT               AS FISCVARNT,
+  FISCYEAR                AS FISCYEAR
 FROM src_ZSEC_SALA
 -- INCREMENTAL NOTE: no timestamp column available for delta filter;
 -- full reload on every run. Add a WHERE clause when a delta key exists.
