@@ -1,0 +1,218 @@
+config {
+  type: "incremental",
+  schema: "sales_cdc_poc",
+  name: "ZSALEHDR",
+  uniqueKey: ["DOC_NUMBER"],
+  tags: ["bw_migration"]
+}
+
+-- MERGE load: key fields are DOC_NUMBER
+
+WITH
+
+-- START ROUTINE: filters out rows where GN_CUSTOM = '2CUS10100001' AND SALESEMPLY = '00000024'
+-- Translated from ABAP: DELETE &SP& WHERE GN_CUSTOM = '2CUS10100001' AND SALESEMPLY = '00000024'
+start_routine_D_SD10 AS (
+  SELECT
+    DOC_NUMBER,
+    COMP_CODE,
+    PARSE_DATE('%Y%m%d', QUOT_FROM) AS QUOT_FROM,
+    PARSE_DATE('%Y%m%d', QUOT_TO) AS QUOT_TO,
+    SALESEMPLY,
+    SOLD_TO,
+    LOC_CURRCY,
+    STAT_CURR,
+    DISTR_CHAN,
+    SALES_OFF,
+    SALES_GRP,
+    SALESORG,
+    GN_R3_SSY,
+    IMODOCCAT,
+    PARSE_DATE('%Y%m%d', `0CALDAY`) AS `0CALDAY`,
+    RECORDMODE,
+    SO_H_CNT
+  FROM ${ref("D_SD10")}
+  WHERE NOT (
+    -- GN_CUSTOM is a calculated field; pre-filter equivalent based on source logic:
+    -- GN_CUSTOM = if SOLD_TO is null/empty/zero then empty string,
+    -- else if SOLD_TO is all digits then concatenate GN_R3_SSY, ' 2CUS', and SOLD_TO with leading zeros removed,
+    -- else concatenate GN_R3_SSY, ' 2CUS', and SOLD_TO as-is.
+    -- Delete rows where that derived value = '2CUS10100001' AND SALESEMPLY = '00000024'
+    (
+      CASE
+        WHEN (SOLD_TO IS NULL OR SOLD_TO = '' OR SOLD_TO = '0') THEN ''
+        WHEN REGEXP_CONTAINS(SOLD_TO, r'^\d+$')
+          THEN CONCAT(GN_R3_SSY, ' 2CUS', REGEXP_REPLACE(SOLD_TO, r'^0+', ''))
+        ELSE CONCAT(GN_R3_SSY, ' 2CUS', SOLD_TO)
+      END = '2CUS10100001'
+    )
+    AND SALESEMPLY = '00000024'
+  )
+),
+
+-- LOOKUP: replace fiscper_stub with ${ref("REAL_TABLE_NAME")}
+--         once the fiscal-period calendar table name is confirmed.
+fiscper_stub AS (
+  SELECT
+    CAST(NULL AS STRING)  AS FISCVARNT,
+    CAST(NULL AS DATE)    AS DATEFROM,
+    CAST(NULL AS DATE)    AS DATETO,
+    CAST(NULL AS STRING)  AS `0FISCPER`,
+    CAST(NULL AS STRING)  AS `0FISCYEAR`
+  -- TODO: Replace fiscper_stub with the appropriate actual table reference once the real table name is known.
+  -- TODO: Correct the JOIN key from COMP_CODE to the actual FISCVARNT source column once spec is confirmed.
+  WHERE FALSE
+),
+
+mapped_ZSALEHDR AS (
+  SELECT
+    -- Direct source-to-target mappings
+    COALESCE(s.DOC_NUMBER, '')        AS DOC_NUMBER,
+    s.COMP_CODE                       AS COMP_CODE,
+    s.QUOT_FROM                       AS QUOT_FROM,
+    s.QUOT_TO                         AS QUOT_TO,
+    s.SALESEMPLY                      AS SALESEMPLY,
+    s.SOLD_TO                         AS SOLD_TO,
+    s.LOC_CURRCY                      AS LOC_CURRCY,
+    s.STAT_CURR                       AS STAT_CURR,
+    s.DISTR_CHAN                       AS DISTR_CHAN,
+    s.SALES_OFF                       AS SALES_OFF,
+    s.SALES_GRP                       AS SALES_GRP,
+    s.SALESORG                        AS SALESORG,
+    s.GN_R3_SSY                       AS GN_R3_SSY,
+    s.IMODOCCAT                       AS IMODOCCAT,
+    s.`0CALDAY`                       AS `0CALDAY`,
+    -- COMP_CODE → BIC_ZIOC_GRP (second mapping of COMP_CODE)
+    s.COMP_CODE                       AS BIC_ZIOC_GRP,
+    -- COMP_CODE → FISCVARNT (third mapping of COMP_CODE; intentionally STRING, never cast to DATE or INT)
+    CAST(s.COMP_CODE AS STRING)       AS FISCVARNT,
+
+    -- LOOKUP: FISCPER using FISCVARNT, 0CALDAY between DATEFROM and DATETO AS 0FISCPER
+    fp.`0FISCPER`                     AS `0FISCPER`,
+
+    -- LOOKUP: FISCPER using FISCVARNT, 0CALDAY between DATEFROM and DATETO AS 0FISCYEAR
+    fp.`0FISCYEAR`                    AS `0FISCYEAR`,
+
+    -- Calculated columns
+
+    -- 15.000 AS BIC_ZSO_H_CNT
+    15.000                            AS BIC_ZSO_H_CNT,
+
+    -- If RECORDMODE = 'R' then 0; if IMODOCCAT is 'H' or 'K' then negate SO_H_CNT; otherwise SO_H_CNT AS SO_H_CNT
+    CASE
+      WHEN s.RECORDMODE = 'R' THEN 0
+      WHEN s.IMODOCCAT = 'H' OR s.IMODOCCAT = 'K' THEN -1 * s.SO_H_CNT
+      ELSE s.SO_H_CNT
+    END                               AS SO_H_CNT,
+
+    -- ABS(10 / 2) AS BIC_ZIOKF_T1
+    ABS(SAFE_DIVIDE(10, 2))           AS BIC_ZIOKF_T1,
+
+    -- If IMODOCCAT is 'H' or 'K' then 'C', otherwise 'D' AS DEB_CRED
+    CASE
+      WHEN s.IMODOCCAT = 'H' OR s.IMODOCCAT = 'K' THEN 'C'
+      ELSE 'D'
+    END                               AS DEB_CRED,
+
+    -- If SOLD_TO is null, empty, or '0' then empty string;
+    -- if SOLD_TO contains only digits then concatenate GN_R3_SSY, ' 2CUS', and SOLD_TO with leading zeros removed;
+    -- otherwise concatenate GN_R3_SSY, ' 2CUS', and SOLD_TO as-is. AS GN_CUSTOM
+    CASE
+      WHEN (s.SOLD_TO IS NULL OR s.SOLD_TO = '' OR s.SOLD_TO = '0') THEN ''
+      WHEN REGEXP_CONTAINS(s.SOLD_TO, r'^\d+$')
+        THEN CONCAT(s.GN_R3_SSY, ' 2CUS', REGEXP_REPLACE(s.SOLD_TO, r'^0+', ''))
+      ELSE CONCAT(s.GN_R3_SSY, ' 2CUS', s.SOLD_TO)
+    END                               AS GN_CUSTOM,
+
+    -- If RECORDMODE = 'R' then 'X', otherwise '' AS HEADER_DEL
+    CASE
+      WHEN s.RECORDMODE = 'R' THEN 'X'
+      ELSE ''
+    END                               AS HEADER_DEL,
+
+    -- If IMODOCCAT = 'B' then 'Q', otherwise 'O' AS DOC_CLASS
+    CASE
+      WHEN s.IMODOCCAT = 'B' THEN 'Q'
+      ELSE 'O'
+    END                               AS DOC_CLASS,
+
+    -- If RECORDMODE = 'R' then 1, otherwise 0 AS DLT_H_CNT
+    CASE
+      WHEN s.RECORDMODE = 'R' THEN 1
+      ELSE 0
+    END                               AS DLT_H_CNT
+  FROM start_routine_D_SD10 AS s
+  LEFT JOIN fiscper_stub AS fp
+    ON CAST(s.COMP_CODE AS STRING) = fp.FISCVARNT
+    AND s.`0CALDAY` BETWEEN fp.DATEFROM AND fp.DATETO
+),
+
+-- END ROUTINE: assigns UPD_DATE = CURRENT_DATE for every row in result package
+-- Translated from ABAP: LOOP AT &RP& ASSIGNING <RESULT_FIELDS>. <RESULT_FIELDS>-UPD_DATE = SY-DATUM. ENDLOOP.
+end_routine_ZSALEHDR AS (
+  SELECT
+    DOC_NUMBER,
+    COMP_CODE,
+    QUOT_FROM,
+    QUOT_TO,
+    SALESEMPLY,
+    SOLD_TO,
+    LOC_CURRCY,
+    STAT_CURR,
+    DISTR_CHAN,
+    SALES_OFF,
+    SALES_GRP,
+    SALESORG,
+    GN_R3_SSY,
+    IMODOCCAT,
+    `0CALDAY`,
+    BIC_ZIOC_GRP,
+    FISCVARNT,
+    `0FISCPER`,
+    `0FISCYEAR`,
+    BIC_ZSO_H_CNT,
+    SO_H_CNT,
+    BIC_ZIOKF_T1,
+    DEB_CRED,
+    GN_CUSTOM,
+    HEADER_DEL,
+    DOC_CLASS,
+    DLT_H_CNT,
+    -- End routine: set UPD_DATE = CURRENT_DATE (translated from SAP sy-datum) for all rows
+    CURRENT_DATE AS UPD_DATE
+  FROM mapped_ZSALEHDR
+)
+
+SELECT
+  DOC_NUMBER,
+  COMP_CODE,
+  QUOT_FROM,
+  QUOT_TO,
+  SALESEMPLY,
+  SOLD_TO,
+  LOC_CURRCY,
+  STAT_CURR,
+  DISTR_CHAN,
+  SALES_OFF,
+  SALES_GRP,
+  SALESORG,
+  GN_R3_SSY,
+  IMODOCCAT,
+  `0CALDAY`,
+  BIC_ZIOC_GRP,
+  FISCVARNT,
+  `0FISCPER`,
+  `0FISCYEAR`,
+  BIC_ZSO_H_CNT,
+  SO_H_CNT,
+  BIC_ZIOKF_T1,
+  DEB_CRED,
+  GN_CUSTOM,
+  HEADER_DEL,
+  DOC_CLASS,
+  DLT_H_CNT,
+  UPD_DATE
+FROM end_routine_ZSALEHDR
+${when(incremental(), `WHERE \`0CALDAY\` > (
+    SELECT MAX(\`0CALDAY\`) FROM ${self()}
+)`)}

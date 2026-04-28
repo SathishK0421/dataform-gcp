@@ -1,0 +1,104 @@
+config {
+  type: "incremental",
+  schema: "sales_cdc_poc",
+  name: "ZOF1_SAI",
+  tags: ["bw_migration"]
+}
+
+-- FullLoad: full table replacement on every Dataform run.
+
+WITH
+
+-- START ROUTINE: filters out rows where BUKRS = '4900000061'
+start_routine_0FI_GL_4_S4HCLNT100 AS (
+  SELECT
+    BUKRS,
+    LCURR,
+    AUFNR,
+    KOSTL,
+    PRCTR,
+    BELNR,
+    WERKS,
+    KOKRS,
+    FISCVAR,
+    FISCPER,
+    BLDAT,
+    BUDAT,
+    HSSL,
+    KSSK
+  FROM ${ref("0FI_GL_4_S4HCLNT100")}
+  WHERE BUKRS <> '4900000061'
+),
+
+-- LOOKUP: replace fiscper_stub with ${ref("REAL_TABLE_NAME")}
+--         once the fiscal-period calendar table name is confirmed.
+fiscper_stub AS (
+  -- TODO: Replace with a real fiscal-period lookup when source data is available
+  -- NOTE: 0FISCPER must remain STRING (format YYYYMM) and must NOT be coerced to DATE at any stage
+  SELECT
+    CAST(NULL AS STRING) AS FISCVARNT,
+    CAST(NULL AS DATE)   AS DATEFROM,
+    CAST(NULL AS DATE)   AS DATETO,
+    CAST(NULL AS STRING) AS `0FISCPER`
+  WHERE FALSE
+),
+
+mapped_ZOF1_SAI AS (
+  SELECT
+    s.BUKRS                                      AS COMP_CODE,
+    s.LCURR                                      AS CURRENCY,
+    s.AUFNR                                      AS COORDER,
+    s.KOSTL                                      AS COSTCENTER,
+    s.PRCTR                                      AS PROFIT_CTR,
+    s.BELNR                                      AS DOC_NUM,
+    s.WERKS                                      AS PLANT,
+    s.KOKRS                                      AS CO_AREA,
+    s.FISCVAR                                    AS `0FISCVARNT`,
+    COALESCE(fp.`0FISCPER`, NULL)                AS `0FISCPER`,
+    NULL                                         AS CHRT_ACCTS,  -- no source mapping defined
+    PARSE_DATE('%Y%m%d', s.BLDAT)                AS `0CALDAY_BLDAT`,
+    PARSE_DATE('%Y%m%d', s.BUDAT)                AS `0CALDAY_BUDAT`,
+    NULL                                         AS HSSL,  -- no target mapping defined per spec
+    NULL                                         AS KSSK   -- no target mapping defined per spec
+  FROM start_routine_0FI_GL_4_S4HCLNT100 s
+  LEFT JOIN fiscper_stub fp
+    ON s.FISCVAR = fp.FISCVARNT
+),
+
+-- END ROUTINE: replaces PROFIT_CTR value 'US10_PLR' with 'US10_nss'
+end_routine_ZOF1_SAI AS (
+  SELECT
+    COMP_CODE,
+    CURRENCY,
+    COORDER,
+    COSTCENTER,
+    CASE
+      WHEN PROFIT_CTR = 'US10_PLR' THEN 'US10_nss'
+      ELSE PROFIT_CTR
+    END                                          AS PROFIT_CTR,
+    DOC_NUM,
+    PLANT,
+    CO_AREA,
+    `0FISCVARNT`,
+    `0FISCPER`,
+    CHRT_ACCTS,
+    `0CALDAY_BLDAT`,
+    `0CALDAY_BUDAT`,
+    HSSL,
+    KSSK
+  FROM mapped_ZOF1_SAI
+)
+
+SELECT
+  COMP_CODE,
+  CURRENCY,
+  COORDER,
+  COSTCENTER,
+  PROFIT_CTR,
+  DOC_NUM,
+  PLANT,
+  CO_AREA,
+  `0FISCVARNT`,
+  `0FISCPER`,
+  CHRT_ACCTS
+FROM end_routine_ZOF1_SAI

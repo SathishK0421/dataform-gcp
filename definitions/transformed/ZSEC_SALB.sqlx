@@ -1,0 +1,71 @@
+config {
+  type: "incremental",
+  schema: "sales_cdc_poc",
+  name: "ZSEC_SALB",
+  uniqueKey: ["COMP_CODE", "DOC_TYPE", "SALESEMPLY"],
+  tags: ["bw_migration"]
+}
+
+-- MERGE load: key fields are COMP_CODE, DOC_TYPE, SALESEMPLY
+
+WITH
+  src_ZSEC_SALA AS (
+    SELECT
+      COMP_CODE,
+      SALESEMPLY,
+      IMODOCCATR,
+      AMNT,
+      STAT_CURR,
+      S4SOLD_TO,
+      CUST_GRP1,
+      CPR_CREATE,
+      LOC_CURRCY,
+      AB_ITEM,
+      CRMSALORGX,
+      PR_CAT_SAL,
+      `0FISCYEAR`,
+      `0FISCVARNT`
+    FROM ${ref("ZSEC_SALA")}
+  ),
+
+  calc_cols AS (
+    SELECT
+      COMP_CODE,
+      SALESEMPLY,
+      IMODOCCATR,
+      AMNT,
+      STAT_CURR,
+      S4SOLD_TO,
+      CUST_GRP1,
+      CPR_CREATE,
+      LOC_CURRCY,
+      AB_ITEM,
+      CRMSALORGX,
+      PR_CAT_SAL,
+      `0FISCYEAR`,
+      `0FISCVARNT`,
+      -- Calculated_Column: TA AS DOC_TYPE
+      -- INCREMENTAL NOTE: no timestamp column available for delta filter;
+      -- full reload on every run. Add a WHERE clause when a delta key exists.
+      CAST(NULL AS STRING) AS DOC_TYPE  -- no source mapping defined for TA; manual review required
+    FROM src_ZSEC_SALA
+  )
+
+SELECT
+  COALESCE(COMP_CODE, '')     AS COMP_CODE,
+  SALESEMPLY                  AS SALESEMPLY,
+  IMODOCCATR                  AS IMODOCCATR,
+  AMNT                        AS AMNT,
+  STAT_CURR                   AS STAT_CURR,
+  S4SOLD_TO                   AS S4SOLD_TO,
+  CUST_GRP1                   AS CUST_GRP1,
+  CPR_CREATE                  AS CPR_CREATE,
+  LOC_CURRCY                  AS LOC_CURRCY,
+  AB_ITEM                     AS AB_ITEM,
+  CRMSALORGX                  AS CRMSALORGX,
+  PR_CAT_SAL                  AS PR_CAT_SAL,
+  `0FISCYEAR`                 AS `0FISCYEAR`,
+  `0FISCVARNT`                AS `0FISCVARNT`,
+  COALESCE(DOC_TYPE, '')      AS DOC_TYPE
+FROM calc_cols
+${when(incremental(), `WHERE FALSE -- INCREMENTAL NOTE: no timestamp column available for delta filter; full reload on every run. Add a WHERE clause when a delta key exists.`)}

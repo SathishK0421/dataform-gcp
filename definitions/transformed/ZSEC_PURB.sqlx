@@ -1,0 +1,69 @@
+config {
+  type: "incremental",
+  schema: "sales_cdc_poc",
+  name: "ZSEC_PURB",
+  uniqueKey: ["COMP_CODE", "DOC_TYPE", "SALESEMPLY"],
+  tags: ["bw_migration"]
+}
+
+-- MERGE load: key fields are COMP_CODE, DOC_TYPE, SALESEMPLY
+
+WITH
+  src_ZSEC_PURA AS (
+    SELECT
+      COMP_CODE,
+      SALESEMPLY,
+      IMODOCCATR,
+      AMNT,
+      STAT_CURR,
+      S4SOLD_TO,
+      CUST_GRP1,
+      CPR_CREATE,
+      LOC_CURRCY,
+      AB_ITEM,
+      CRMSALORGX,
+      PR_CAT_SAL,
+      `0FISCYEAR`,
+      `0FISCVARNT`,
+      -- Calculated_Column: CBG0 AS DOC_TYPE
+      'CBG0' AS DOC_TYPE
+    FROM ${ref("ZSEC_PURA")}
+  ),
+  staged_ZSEC_PURB AS (
+    SELECT
+      COALESCE(COMP_CODE,  '')  AS COMP_CODE,
+      COALESCE(SALESEMPLY, 0)   AS SALESEMPLY,
+      IMODOCCATR,
+      AMNT,
+      STAT_CURR,
+      S4SOLD_TO,
+      CUST_GRP1,
+      CPR_CREATE,
+      LOC_CURRCY,
+      AB_ITEM,
+      CRMSALORGX,
+      PR_CAT_SAL,
+      `0FISCYEAR`,
+      `0FISCVARNT`,
+      COALESCE(DOC_TYPE, '')    AS DOC_TYPE
+    FROM src_ZSEC_PURA
+  )
+SELECT
+  COMP_CODE,
+  SALESEMPLY,
+  IMODOCCATR,
+  AMNT,
+  STAT_CURR,
+  S4SOLD_TO,
+  CUST_GRP1,
+  CPR_CREATE,
+  LOC_CURRCY,
+  AB_ITEM,
+  CRMSALORGX,
+  PR_CAT_SAL,
+  `0FISCYEAR`,
+  `0FISCVARNT`,
+  DOC_TYPE
+FROM staged_ZSEC_PURB
+-- INCREMENTAL NOTE: no timestamp column available for delta filter;
+-- full reload on every run. Add a WHERE clause when a delta key exists.
