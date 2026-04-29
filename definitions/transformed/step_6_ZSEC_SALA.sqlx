@@ -1,0 +1,44 @@
+-- ============================================================
+-- Dataform SQLX
+-- Step 6 | Transformation ID: 0O5HQYCWHO6A822RDO72IDEZPP4FFF76
+-- Operation  : Merge
+-- Source     : ZTSOBJ_C
+-- Target     : ZSEC_SALA
+-- Merge keys : COMP_CODE, SALESEMPLY
+-- Calculated : 'AG' AS DOC_TYPE (hardcoded literal)
+-- ============================================================
+
+config {
+  type: "incremental",
+  schema: "your_dataset",
+  name: "ZSEC_SALA",
+  description: "Step 6 – Merge ZTSOBJ_C into ZSEC_SALA with DOC_TYPE forced to AG",
+  tags: ["ZPC_TSOBJC", "step_6", "merge"],
+  uniqueKey: ["COMP_CODE", "SALESEMPLY"]
+}
+
+SELECT
+    COMP_CODE,
+    SALESEMPLY,
+    IMODOCCATR,
+    AMNT,
+    STAT_CURR,
+    S4SOLD_TO,
+    CUST_GRP1,
+    CPR_CREATE,
+    LOC_CURRCY,
+    AB_ITEM,
+    CRMSALORGX,
+    PR_CAT_SAL,
+    `0FISCYEAR`,
+    `0FISCVARNT`,
+    'AG' AS DOC_TYPE    -- Calculated column: hardcoded literal
+
+FROM ${ref("ZTSOBJ_C")}
+
+${ when(incremental(),
+    `WHERE COMP_CODE || SALESEMPLY NOT IN (
+        SELECT COMP_CODE || SALESEMPLY
+        FROM ${self()}
+    )`
+) }

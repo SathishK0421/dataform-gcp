@@ -1,0 +1,80 @@
+-- ============================================================
+-- Dataform SQLX
+-- Step 10 | Transformation ID: 0DHZOZ32A08833ZY4LK12P1WRELZER1K
+-- Operation  : FullLoad
+-- Source     : 0FI_GL_4_S4HCLNT100
+-- Target     : ZOF1_SAI
+-- Merge key  : BELNR -> DOC_NUM
+-- Calculated :
+--   1. LOOKUP FISCPER using FISCVARNT, FISCPER between DATEFROM and DATETO AS 0FISCPER
+--   2. (blank) AS CHRT_ACCTS  — no source mapping
+--   3. START ROUTINE: filter BUKRS != '4900000061'
+--   4. END ROUTINE  : replace PROFIT_CTR 'US10_PLR' -> 'US10_nss'
+-- ============================================================
+
+config {
+  type: "table",
+  schema: "your_dataset",
+  name: "ZOF1_SAI",
+  description: "Step 10 – Full load of FI/GL extractor with fiscal period lookup and PROFIT_CTR remap",
+  tags: ["ZPC_TSOBJC", "step_10", "full_load", "start_routine", "end_routine"]
+}
+
+WITH
+
+-- START ROUTINE: filter out excluded company code
+src_filtered AS (
+    SELECT
+        BUKRS,
+        LCURR,
+        AUFNR,
+        KOSTL,
+        PRCTR,
+        BELNR,
+        WERKS,
+        KOKRS,
+        FISCVAR
+    FROM ${ref("0FI_GL_4_S4HCLNT100")}
+    WHERE BUKRS <> '4900000061'   -- mirrors: Delete &SP& where BUKRS eq '4900000061'
+),
+
+-- Column mapping + FISCPER lookup
+mapped AS (
+    SELECT
+        s.BUKRS                     AS COMP_CODE,
+        s.LCURR                     AS CURRENCY,
+        s.AUFNR                     AS COORDER,
+        s.KOSTL                     AS COSTCENTER,
+        s.PRCTR                     AS PROFIT_CTR,
+        s.BELNR                     AS DOC_NUM,
+        s.WERKS                     AS PLANT,
+        s.KOKRS                     AS CO_AREA,
+        s.FISCVAR                   AS `0FISCVARNT`,
+        -- LOOKUP: fiscal period from calendar table
+        fp.FISCPER                  AS `0FISCPER`,
+        -- CHRT_ACCTS has no source field defined
+        NULL                        AS CHRT_ACCTS
+    FROM src_filtered AS s
+    LEFT JOIN ${ref("FISCPER_CALENDAR")} AS fp   -- replace with your actual fiscal calendar ref
+        ON  fp.FISCVARNT = s.FISCVAR
+        AND CURRENT_DATE BETWEEN fp.DATEFROM AND fp.DATETO
+)
+
+-- END ROUTINE: remap PROFIT_CTR value
+SELECT
+    COMP_CODE,
+    CURRENCY,
+    COORDER,
+    COSTCENTER,
+    CASE
+        WHEN PROFIT_CTR = 'US10_PLR' THEN 'US10_nss'  -- mirrors ABAP end routine
+        ELSE PROFIT_CTR
+    END AS PROFIT_CTR,
+    DOC_NUM,
+    PLANT,
+    CO_AREA,
+    `0FISCVARNT`,
+    `0FISCPER`,
+    CHRT_ACCTS
+
+FROM mapped

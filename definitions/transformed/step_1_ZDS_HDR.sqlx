@@ -1,0 +1,56 @@
+-- ============================================================
+-- Dataform SQLX
+-- Step 1 | Transformation ID: 0RN1SBI8MA1N0K5LQRALFG7NFQ9USSAH
+-- Operation  : FullLoad  (table replace)
+-- Source     : 2LIS_11_VAHDR_S4HCLNT100
+-- Target     : ZDS_HDR
+-- ============================================================
+
+config {
+  type: "table",
+  schema: "your_dataset",          -- replace with your target dataset
+  name: "ZDS_HDR",
+  description: "Step 1 – Full load of SAP SD header extractor into staging table",
+  tags: ["ZPC_TSOBJC", "step_1", "full_load"],
+  bigquery: {
+    partitionBy: "DATE(ERDAT)"     -- adjust or remove if not needed
+  }
+}
+
+SELECT
+    ROCANCEL,
+    VBELN,
+    ANGDT,
+    AUART,
+    AUGRU,
+    BNDDT,
+    BUKRS,
+    ERDAT,
+    FAKSK,
+    HWAER,
+    KUNNR,
+    KURST,
+    KVGR1,
+    KVGR2,
+    KVGR3,
+    KVGR4,
+    KVGR5,
+    LIFSK,
+    PVRTNR,
+    STWAE,
+    VBTYP,
+    VDATU,
+    VKBUR,
+    VKGRP,
+    VKORG,
+    VTWEG,
+    WAERK,
+    ABDIS,
+    SPARA,
+    VGTYP_AK,
+    ANZAU,
+    PERIV,
+    ODQ_CHANGEMODE,
+    ODQ_ENTITYCNTR
+
+FROM ${ref("2LIS_11_VAHDR_S4HCLNT100")}

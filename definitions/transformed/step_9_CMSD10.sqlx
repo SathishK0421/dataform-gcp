@@ -1,0 +1,54 @@
+-- ============================================================
+-- Dataform SQLX
+-- Step 9 | Transformation ID: 0J9SVSBNXE7MG5ZIWK43DJTOFGYUOF0L
+-- Operation  : Merge (no key fields → treated as full replace)
+-- Source     : 2LIS_11_VAHDR_S4HCLNT100
+-- Target     : CMSD10
+-- Notes      : No merge key fields defined in JSON; using type="table"
+--              for a full replace on each run. Switch to incremental
+--              and add uniqueKey if deduplication is required.
+-- ============================================================
+
+config {
+  type: "table",
+  schema: "your_dataset",
+  name: "CMSD10",
+  description: "Step 9 – Full replace load from SD header extractor into CMSD10",
+  tags: ["ZPC_TSOBJC", "step_9", "full_load"]
+}
+
+SELECT
+    ROCANCEL,
+    VBELN,
+    ABDIS,
+    ANGDT,
+    AUART,
+    AUGRU,
+    BNDDT,
+    BUKRS,
+    ERDAT,
+    FAKSK,
+    HWAER,
+    KUNNR,
+    KURST,
+    KVGR1,
+    KVGR2,
+    KVGR3,
+    KVGR4,
+    KVGR5,
+    LIFSK,
+    PVRTNR,
+    STWAE,
+    VBTYP,
+    VDATU,
+    VKBUR,
+    VKGRP,
+    VKORG,
+    VTWEG,
+    WAERK,
+    SPARA,
+    VGTYP_AK,
+    ANZAU,
+    PERIV
+
+FROM ${ref("2LIS_11_VAHDR_S4HCLNT100")}

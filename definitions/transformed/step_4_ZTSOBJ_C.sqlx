@@ -1,0 +1,44 @@
+-- ============================================================
+-- Dataform SQLX
+-- Step 4 | Transformation ID: 0IED35SDX81RIG91YTHG5NKYWLE7WLHL
+-- Operation  : Merge
+-- Source     : ZTSOBJ
+-- Target     : ZTSOBJ_C
+-- Merge keys : COMP_CODE, DOC_TYPE, SALESEMPLY
+-- Calculated : 100.0 AS AMNT (hardcoded constant)
+-- ============================================================
+
+config {
+  type: "incremental",
+  schema: "your_dataset",
+  name: "ZTSOBJ_C",
+  description: "Step 4 – Merge ZTSOBJ and add constant AMNT = 100.0",
+  tags: ["ZPC_TSOBJC", "step_4", "merge"],
+  uniqueKey: ["COMP_CODE", "DOC_TYPE", "SALESEMPLY"]
+}
+
+SELECT
+    COMP_CODE,
+    DOC_TYPE,
+    SALESEMPLY,
+    IMODOCCATR,
+    S4SOLD_TO,
+    STAT_CURR,
+    CPR_CREATE,
+    CUST_GRP1,
+    AB_ITEM,
+    CRMSALORGX,
+    PR_CAT_SAL,
+    LOC_CURRCY,
+    `0FISCVARNT`,
+    `0FISCYEAR`,
+    100.0 AS AMNT   -- Calculated column: hardcoded constant
+
+FROM ${ref("ZTSOBJ")}
+
+${ when(incremental(),
+    `WHERE COMP_CODE || DOC_TYPE || SALESEMPLY NOT IN (
+        SELECT COMP_CODE || DOC_TYPE || SALESEMPLY
+        FROM ${self()}
+    )`
+) }

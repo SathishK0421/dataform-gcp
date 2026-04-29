@@ -1,0 +1,38 @@
+-- ============================================================
+-- Dataform SQLX
+-- Step 2 | Transformation ID: 0QGPRPGOW9PDN4ST6QWDR838VEAQKL26
+-- Operation  : Merge
+-- Source     : ZDS_HDR
+-- Target     : ZDS_HDR1
+-- Merge keys : SALESEMPLY (PVRTNR), DOC_TYPE (AUART), COMP_CODE (BUKRS)
+-- ============================================================
+
+config {
+  type: "incremental",
+  schema: "your_dataset",
+  name: "ZDS_HDR1",
+  description: "Step 2 – Merge ZDS_HDR with BW column renames",
+  tags: ["ZPC_TSOBJC", "step_2", "merge"],
+  uniqueKey: ["SALESEMPLY", "DOC_TYPE", "COMP_CODE"]
+}
+
+SELECT
+    VBELN       AS IMODOCCATR,
+    PVRTNR      AS SALESEMPLY,
+    AUART       AS DOC_TYPE,
+    STWAE       AS STAT_CURR,
+    KUNNR       AS S4SOLD_TO,
+    ERDAT       AS CPR_CREATE,
+    KVGR1       AS CUST_GRP1,
+    VKORG       AS CRMSALORGX,
+    BUKRS       AS COMP_CODE,
+    HWAER       AS LOC_CURRCY
+
+FROM ${ref("ZDS_HDR")}
+
+${ when(incremental(),
+    `WHERE PVRTNR || AUART || BUKRS NOT IN (
+        SELECT SALESEMPLY || DOC_TYPE || COMP_CODE
+        FROM ${self()}
+    )`
+) }

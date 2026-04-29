@@ -1,0 +1,62 @@
+-- ============================================================
+-- Dataform SQLX
+-- Step 3 | Transformation ID: 0LMFXIJ7ACV8AHXT5D9H7CXI9OHG38G4
+-- Operation  : Merge
+-- Source     : ZDS_HDR1
+-- Target     : ZTSOBJ
+-- Merge keys : COMP_CODE, DOC_TYPE, SALESEMPLY (same on both sides)
+-- START ROUTINE logic:
+--   1. Exclude rows where COMP_CODE or 0FISCYEAR is empty.
+--   2. Default STAT_CURR = LOC_CURRCY when STAT_CURR is empty.
+--   3. ZBW_SD_VALIDATE_START → implement as UDF / pre-validated lookup.
+-- ============================================================
+
+config {
+  type: "incremental",
+  schema: "your_dataset",
+  name: "ZTSOBJ",
+  description: "Step 3 – Merge with mandatory field validation and stat-currency defaulting",
+  tags: ["ZPC_TSOBJC", "step_3", "merge", "start_routine"],
+  uniqueKey: ["COMP_CODE", "DOC_TYPE", "SALESEMPLY"]
+}
+
+WITH src_validated AS (
+    SELECT
+        COMP_CODE,
+        DOC_TYPE,
+        SALESEMPLY,
+        IMODOCCATR,
+        S4SOLD_TO,
+        -- Default STAT_CURR to LOC_CURRCY when empty (mirrors ABAP start routine)
+        CASE
+            WHEN STAT_CURR IS NULL OR STAT_CURR = ''
+            THEN LOC_CURRCY
+            ELSE STAT_CURR
+        END AS STAT_CURR,
+        CPR_CREATE,
+        CUST_GRP1,
+        AB_ITEM,
+        CRMSALORGX,
+        PR_CAT_SAL,
+        LOC_CURRCY,
+        `0FISCVARNT`,
+        `0FISCYEAR`
+
+    FROM ${ref("ZDS_HDR1")}
+
+    WHERE
+        -- Mandatory field validation (mirrors ABAP: DELETE if COMP_CODE or FISCYEAR is INITIAL)
+        (COMP_CODE IS NOT NULL AND COMP_CODE <> '')
+        AND (`0FISCYEAR` IS NOT NULL AND `0FISCYEAR` <> '')
+        -- NOTE: ZBW_SD_VALIDATE_START call should be implemented as a UDF or
+        -- a join against a pre-validated reference table here.
+)
+
+SELECT * FROM src_validated
+
+${ when(incremental(),
+    `WHERE COMP_CODE || DOC_TYPE || SALESEMPLY NOT IN (
+        SELECT COMP_CODE || DOC_TYPE || SALESEMPLY
+        FROM ${self()}
+    )`
+) }

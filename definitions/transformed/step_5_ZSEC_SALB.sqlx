@@ -1,0 +1,44 @@
+-- ============================================================
+-- Dataform SQLX
+-- Step 5 | Transformation ID: 0FMJ8P18676ZLVAZWCTLFLYTJEM7ZWKD
+-- Operation  : Merge
+-- Source     : ZSEC_SALA
+-- Target     : ZSEC_SALB
+-- Merge keys : COMP_CODE, SALESEMPLY
+-- Calculated : 'TA' AS DOC_TYPE (hardcoded literal)
+-- ============================================================
+
+config {
+  type: "incremental",
+  schema: "your_dataset",
+  name: "ZSEC_SALB",
+  description: "Step 5 – Merge ZSEC_SALA into ZSEC_SALB with DOC_TYPE forced to TA",
+  tags: ["ZPC_TSOBJC", "step_5", "merge"],
+  uniqueKey: ["COMP_CODE", "SALESEMPLY"]
+}
+
+SELECT
+    COMP_CODE,
+    SALESEMPLY,
+    IMODOCCATR,
+    AMNT,
+    STAT_CURR,
+    S4SOLD_TO,
+    CUST_GRP1,
+    CPR_CREATE,
+    LOC_CURRCY,
+    AB_ITEM,
+    CRMSALORGX,
+    PR_CAT_SAL,
+    `0FISCYEAR`,
+    `0FISCVARNT`,
+    'TA' AS DOC_TYPE    -- Calculated column: hardcoded literal
+
+FROM ${ref("ZSEC_SALA")}
+
+${ when(incremental(),
+    `WHERE COMP_CODE || SALESEMPLY NOT IN (
+        SELECT COMP_CODE || SALESEMPLY
+        FROM ${self()}
+    )`
+) }
