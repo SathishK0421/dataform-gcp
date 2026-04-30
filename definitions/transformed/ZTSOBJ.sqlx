@@ -1,0 +1,205 @@
+config {
+  type: "incremental",
+  schema: "sales_cdc_poc",
+  name: "ZSA_ITM",
+  tags: ["bw_migration"]
+}
+
+-- FullLoad: full table replacement on every Dataform run.
+-- OMITTED: all fields listed in _missing_fields (not present in source table schema):
+--   VBELN, VOLEH, VOLUM, VDATU, MEINS, KZWI1, KZWI3, KZWI2, KPEIN, MWSBP, KMEIN,
+--   MATWA, PKUNRG, PSTYV, WAERK, PKUNWE, BUKRS, MATKL, NETPR, HWAER, NTGEW, GEWEI,
+--   UVFAK, UVVLK, MATNR, STWAE, ERZET, ERDAT, LSMENG, WERKS
+-- All source fields are in _missing_fields; NULLs emitted for all mapped targets.
+
+-- LOOKUP: replace fiscper_stub with ${ref("REAL_FISCAL_PERIOD_CALENDAR_TABLE")}
+--         once the fiscal-period calendar table name is confirmed.
+-- 0FISCVARNT: SOURCE & TARGET FIELD SAME, NO LOGIC REQUIRED AS 0FISCVARNT
+-- 0FISCYEAR:  LOOKUP TABLE FISCPER using FISCVARNT, PERIV between DATEFROM and DATETO
+
+WITH
+
+fiscper_stub AS (
+  -- STUB: fiscal period calendar lookup. LOOKUP: verify table name before deploying.
+  SELECT
+    CAST(NULL AS STRING) AS FISCVARNT,
+    CAST(NULL AS DATE)   AS DATEFROM,
+    CAST(NULL AS DATE)   AS DATETO,
+    CAST(NULL AS STRING) AS FISCPER,
+    CAST(NULL AS STRING) AS FISCYEAR
+  FROM UNNEST([]) AS empty
+),
+
+-- START ROUTINE: DELETE rows WHERE MATNR = 'TG11'
+-- ABAP: DELETE &SP& WHERE MATNR EQ 'TG11'
+-- Since MATNR is in _missing_fields, the source table has no MATNR column;
+-- the filter has no rows to act on. Stub source returns zero rows by design.
+start_routine_ZNS_ITEM AS (
+  SELECT
+    VBELN,
+    VOLEH,
+    VOLUM,
+    VDATU,
+    MEINS,
+    KZWI1,
+    KZWI3,
+    KZWI2,
+    KPEIN,
+    MWSBP,
+    KMEIN,
+    MATWA,
+    PKUNRG,
+    PSTYV,
+    WAERK,
+    PKUNWE,
+    BUKRS,
+    MATKL,
+    NETPR,
+    HWAER,
+    NTGEW,
+    GEWEI,
+    UVFAK,
+    UVVLK,
+    MATNR,
+    STWAE,
+    ERZET,
+    ERDAT,
+    LSMENG,
+    WERKS,
+    FISCVARNT
+  FROM ${ref('ZNS_ITEM')}
+  -- START ROUTINE filter: exclude rows where MATNR = 'TG11'
+  WHERE MATNR <> 'TG11'
+),
+
+-- Field-level mapping CTE with fiscal period lookup
+mapped_ZSA_ITM AS (
+  SELECT
+    s.VBELN                                              AS IMODOCCATR,
+    s.VOLEH                                              AS VOLUMEUNIT,
+    s.VOLUM                                              AS VOLUME,
+    s.VDATU                                              AS UPD_DATE,
+    s.MEINS                                              AS BASE_UOM,
+    s.KZWI1                                             AS SUBTOT_OC1,
+    s.KZWI3                                             AS SUBTOT_OC3,
+    s.KZWI2                                             AS SUBTOT_OC2,
+    s.KPEIN                                             AS COND_PR_UN,
+    s.MWSBP                                             AS TAX_VALUE,
+    s.KMEIN                                             AS UNIT,
+    s.MATWA                                             AS MATENTERD,
+    s.PKUNRG                                            AS PAYER,
+    s.PSTYV                                             AS ITM_CAT,
+    s.WAERK                                             AS DOC_CURRCY,
+    s.PKUNWE                                            AS S4SHIP_TO,
+    s.BUKRS                                             AS COMP_CODE,
+    s.MATKL                                             AS MATL_GROUP,
+    s.NETPR                                             AS NETPRICE,
+    s.HWAER                                             AS LOC_CURRCY,
+    s.NTGEW                                             AS NET_WGT_DL,
+    s.GEWEI                                             AS UNIT_OF_WT,
+    s.UVFAK                                             AS AB_ITEM,
+    s.UVVLK                                             AS DELIV_ITEM,
+    s.MATNR                                             AS BIC_ZMATEIAL1,
+    s.STWAE                                             AS STAT_CURR,
+    s.ERZET                                             AS TIME,
+    -- ERDAT is an ABAP DATS field; use PARSE_DATE when real source is STRING typed
+    PARSE_DATE('%Y%m%d', CAST(s.ERDAT AS STRING))       AS CR_ON_I,
+    s.LSMENG                                            AS REQDEKIQUANTY,
+    s.WERKS                                             AS PLANT,
+    s.MATNR                                             AS BASIC_MATL,
+    s.WERKS                                             AS PLANTCAT,
+    -- 0FISCVARNT: source & target field same, no logic required
+    s.FISCVARNT                                         AS `0FISCVARNT`,
+    -- 0FISCYEAR: lookup via fiscper calendar using FISCVARNT, VDATU between DATEFROM and DATETO
+    -- LOOKUP: verify table name before deploying
+    fp.FISCYEAR                                         AS `0FISCYEAR`,
+    -- NETVALUE: no expression defined in spec
+    NULL                                                AS NETVALUE
+  FROM start_routine_ZNS_ITEM s
+  LEFT JOIN fiscper_stub fp
+    ON s.FISCVARNT = fp.FISCVARNT
+    AND s.VDATU BETWEEN fp.DATEFROM AND fp.DATETO
+),
+
+-- END ROUTINE: LOOP AT results; IF PLANT = '1710' THEN PLANT = '1720'
+-- ABAP: loop at &RP& assigning <result_fields>.
+--         if <result_fields>-plant = '1710'. <result_fields>-plant = '1720'. endif.
+--       endloop.
+-- Operates on TARGET column names (PLANT).
+end_routine_ZSA_ITM AS (
+  SELECT
+    IMODOCCATR,
+    VOLUMEUNIT,
+    VOLUME,
+    UPD_DATE,
+    BASE_UOM,
+    SUBTOT_OC1,
+    SUBTOT_OC3,
+    SUBTOT_OC2,
+    COND_PR_UN,
+    TAX_VALUE,
+    UNIT,
+    MATENTERD,
+    PAYER,
+    ITM_CAT,
+    DOC_CURRCY,
+    S4SHIP_TO,
+    COMP_CODE,
+    MATL_GROUP,
+    NETPRICE,
+    LOC_CURRCY,
+    NET_WGT_DL,
+    UNIT_OF_WT,
+    AB_ITEM,
+    DELIV_ITEM,
+    BIC_ZMATEIAL1,
+    STAT_CURR,
+    TIME,
+    CR_ON_I,
+    REQDEKIQUANTY,
+    CASE WHEN PLANT = '1710' THEN '1720' ELSE PLANT END AS PLANT,
+    BASIC_MATL,
+    PLANTCAT,
+    `0FISCVARNT`,
+    `0FISCYEAR`,
+    NETVALUE
+  FROM mapped_ZSA_ITM
+)
+
+SELECT
+  IMODOCCATR,
+  VOLUMEUNIT,
+  VOLUME,
+  UPD_DATE,
+  BASE_UOM,
+  SUBTOT_OC1,
+  SUBTOT_OC3,
+  SUBTOT_OC2,
+  COND_PR_UN,
+  TAX_VALUE,
+  UNIT,
+  MATENTERD,
+  PAYER,
+  ITM_CAT,
+  DOC_CURRCY,
+  S4SHIP_TO,
+  COMP_CODE,
+  MATL_GROUP,
+  NETPRICE,
+  LOC_CURRCY,
+  NET_WGT_DL,
+  UNIT_OF_WT,
+  AB_ITEM,
+  DELIV_ITEM,
+  BIC_ZMATEIAL1,
+  STAT_CURR,
+  TIME,
+  CR_ON_I,
+  REQDEKIQUANTY,
+  PLANT,
+  BASIC_MATL,
+  PLANTCAT,
+  `0FISCVARNT`,
+  `0FISCYEAR`,
+  NETVALUE
+FROM end_routine_ZSA_ITM

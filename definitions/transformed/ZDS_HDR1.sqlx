@@ -1,0 +1,56 @@
+config {
+  type: "incremental",
+  schema: "sales_cdc_poc",
+  name: "ZDS_HDR1",
+  uniqueKey: ["SALESEMPLY", "DOC_TYPE", "COMP_CODE"],
+  tags: ["bw_migration"]
+}
+
+-- MERGE load: key fields are SALESEMPLY, DOC_TYPE, COMP_CODE
+-- OMITTED from SELECT (all fields in _missing_fields): VBELN, PVRTNR, AUART, STWAE, KUNNR, ERDAT, KVGR1, VKORG, BUKRS, HWAER
+-- NOTE: All source fields listed in _missing_fields are absent from the actual BigQuery source table schema.
+-- Fields are mapped directly where available; NULLs emitted for unmapped targets.
+
+WITH
+src_ZDS_HDR AS (
+  -- All source fields are listed in _missing_fields and do not exist in the source table.
+  -- Emitting NULL placeholders for all target columns derived from missing source fields.
+  SELECT
+    -- OMITTED: VBELN (in _missing_fields)
+    -- OMITTED: PVRTNR (in _missing_fields) -> SALESEMPLY
+    -- OMITTED: AUART (in _missing_fields)  -> DOC_TYPE
+    -- OMITTED: STWAE (in _missing_fields)  -> STAT_CURR
+    -- OMITTED: KUNNR (in _missing_fields)  -> S4SOLD_TO
+    -- OMITTED: ERDAT (in _missing_fields)  -> CPR_CREATE
+    -- OMITTED: KVGR1 (in _missing_fields)  -> CUST_GRP1
+    -- OMITTED: VKORG (in _missing_fields)  -> CRMSALORGX
+    -- OMITTED: BUKRS (in _missing_fields)  -> COMP_CODE
+    -- OMITTED: HWAER (in _missing_fields)  -> LOC_CURRCY
+    CAST(NULL AS STRING)        AS IMODOCCATR,
+    CAST(NULL AS STRING)        AS SALESEMPLY,
+    CAST(NULL AS STRING)        AS DOC_TYPE,
+    CAST(NULL AS STRING)        AS STAT_CURR,
+    CAST(NULL AS STRING)        AS S4SOLD_TO,
+    CAST(NULL AS DATE)          AS CPR_CREATE,
+    CAST(NULL AS STRING)        AS CUST_GRP1,
+    CAST(NULL AS STRING)        AS CRMSALORGX,
+    CAST(NULL AS STRING)        AS COMP_CODE,
+    CAST(NULL AS STRING)        AS LOC_CURRCY
+  FROM ${ref("ZDS_HDR")}
+)
+
+SELECT
+  IMODOCCATR,
+  SALESEMPLY,
+  DOC_TYPE,
+  STAT_CURR,
+  S4SOLD_TO,
+  CPR_CREATE,
+  CUST_GRP1,
+  CRMSALORGX,
+  COMP_CODE,
+  LOC_CURRCY
+FROM src_ZDS_HDR
+${when(incremental(), `WHERE CPR_CREATE > (
+    SELECT MAX(CPR_CREATE) FROM ${self()}
+)`)}
