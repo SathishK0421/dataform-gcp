@@ -1,0 +1,97 @@
+config {
+  type: "incremental",
+  schema: "sales_cdc_poc",
+  name: "CMSD10",
+  tags: ["bw_migration"]
+}
+
+-- MERGE load: no key fields defined (InfoCube target –
+--   full-replace handled by Dataform incremental run).
+-- NOTE: All fields in _missing_fields list are sourced as NULL since they
+--       are absent from the actual BigQuery source table schema.
+-- OMITTED from direct source reference (all fields in _missing_fields):
+--   ROCANCEL, VBELN, ABDIS, ANGDT, AUART, AUGRU, BNDDT, BUKRS, ERDAT,
+--   FAKSK, HWAER, KUNNR, KURST, KVGR1, KVGR2, KVGR3, KVGR4, KVGR5,
+--   LIFSK, PVRTNR, STWAE, VBTYP, VDATU, VKBUR, VKGRP, VKORG, VTWEG,
+--   WAERK, SPARA, VGTYP_AK, ANZAU, PERIV
+-- All fields listed in _missing_fields are not present in the source table.
+-- They are emitted as NULL with appropriate casts based on field type hints.
+
+WITH
+src_2LIS_11_VAHDR AS (
+  SELECT
+    -- All spec fields are listed in _missing_fields; none exist in source table.
+    -- Emitting NULLs for all target columns.
+    CAST(NULL AS STRING)  AS ROCANCEL,
+    -- VBELN is a NUMC/CHAR SAP field; emit NULL as STRING
+    CAST(NULL AS STRING)  AS VBELN,
+    CAST(NULL AS STRING)  AS ABDIS,
+    CAST(NULL AS STRING)  AS ANGDT,
+    CAST(NULL AS STRING)  AS AUART,
+    CAST(NULL AS STRING)  AS AUGRU,
+    CAST(NULL AS STRING)  AS BNDDT,
+    CAST(NULL AS STRING)  AS BUKRS,
+    -- ERDAT is in _date_fields; emit as DATE
+    CAST(NULL AS DATE)    AS ERDAT,
+    CAST(NULL AS STRING)  AS FAKSK,
+    CAST(NULL AS STRING)  AS HWAER,
+    -- KUNNR is a NUMC/CHAR SAP field; emit NULL as STRING
+    CAST(NULL AS STRING)  AS KUNNR,
+    CAST(NULL AS STRING)  AS KURST,
+    CAST(NULL AS STRING)  AS KVGR1,
+    CAST(NULL AS STRING)  AS KVGR2,
+    CAST(NULL AS STRING)  AS KVGR3,
+    CAST(NULL AS STRING)  AS KVGR4,
+    CAST(NULL AS STRING)  AS KVGR5,
+    CAST(NULL AS STRING)  AS LIFSK,
+    CAST(NULL AS STRING)  AS PVRTNR,
+    CAST(NULL AS STRING)  AS STWAE,
+    CAST(NULL AS STRING)  AS VBTYP,
+    -- VDATU is in _date_fields; emit as DATE
+    CAST(NULL AS DATE)    AS VDATU,
+    CAST(NULL AS STRING)  AS VKBUR,
+    CAST(NULL AS STRING)  AS VKGRP,
+    CAST(NULL AS STRING)  AS VKORG,
+    CAST(NULL AS STRING)  AS VTWEG,
+    CAST(NULL AS STRING)  AS WAERK,
+    CAST(NULL AS STRING)  AS SPARA,
+    CAST(NULL AS STRING)  AS VGTYP_AK,
+    CAST(NULL AS STRING)  AS ANZAU,
+    CAST(NULL AS STRING)  AS PERIV
+  FROM ${ref("2LIS_11_VAHDR_S4HCLNT100")}
+)
+
+SELECT
+  ROCANCEL,
+  VBELN,
+  ABDIS,
+  ANGDT,
+  AUART,
+  AUGRU,
+  BNDDT,
+  BUKRS,
+  ERDAT,
+  FAKSK,
+  HWAER,
+  KUNNR,
+  KURST,
+  KVGR1,
+  KVGR2,
+  KVGR3,
+  KVGR4,
+  KVGR5,
+  LIFSK,
+  PVRTNR,
+  STWAE,
+  VBTYP,
+  VDATU,
+  VKBUR,
+  VKGRP,
+  VKORG,
+  VTWEG,
+  WAERK,
+  SPARA,
+  VGTYP_AK,
+  ANZAU,
+  PERIV
+FROM src_2LIS_11_VAHDR

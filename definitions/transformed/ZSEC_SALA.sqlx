@@ -1,0 +1,61 @@
+config {
+  type: "incremental",
+  schema: "sales_cdc_poc",
+  name: "ZSEC_SALA",
+  uniqueKey: ["COMP_CODE", "DOC_TYPE", "SALESEMPLY"],
+  tags: ["bw_migration"]
+}
+
+-- MERGE load: key fields are COMP_CODE, DOC_TYPE, SALESEMPLY
+
+WITH
+src_ZTSOBJ_C AS (
+  SELECT
+    -- OMITTED: COMP_CODE, SALESEMPLY, IMODOCCATR, AMNT, STAT_CURR, S4SOLD_TO,
+    --          CUST_GRP1, CPR_CREATE, LOC_CURRCY, AB_ITEM, CRMSALORGX,
+    --          PR_CAT_SAL, 0FISCYEAR, 0FISCVARNT
+    --          (all listed in _missing_fields; not present in source table schema)
+    -- Calculated column: AG AS DOC_TYPE
+    AG AS DOC_TYPE
+  FROM ${ref("ZTSOBJ_C")}
+),
+
+staged_ZSEC_SALA AS (
+  SELECT
+    CAST(NULL AS STRING) AS COMP_CODE,           -- no source mapping defined (_missing_fields)
+    CAST(NULL AS STRING) AS SALESEMPLY,          -- no source mapping defined (_missing_fields); NUMC field kept as STRING
+    CAST(NULL AS STRING) AS IMODOCCATR,          -- no source mapping defined (_missing_fields)
+    CAST(NULL AS STRING) AS AMNT,                -- no source mapping defined (_missing_fields)
+    CAST(NULL AS STRING) AS STAT_CURR,           -- no source mapping defined (_missing_fields)
+    CAST(NULL AS STRING) AS S4SOLD_TO,           -- no source mapping defined (_missing_fields)
+    CAST(NULL AS STRING) AS CUST_GRP1,           -- no source mapping defined (_missing_fields)
+    CAST(NULL AS STRING) AS CPR_CREATE,          -- no source mapping defined (_missing_fields)
+    CAST(NULL AS STRING) AS LOC_CURRCY,          -- no source mapping defined (_missing_fields)
+    CAST(NULL AS STRING) AS AB_ITEM,             -- no source mapping defined (_missing_fields)
+    CAST(NULL AS STRING) AS CRMSALORGX,          -- no source mapping defined (_missing_fields)
+    CAST(NULL AS STRING) AS PR_CAT_SAL,          -- no source mapping defined (_missing_fields)
+    CAST(NULL AS STRING) AS `0FISCYEAR`,         -- no source mapping defined (_missing_fields)
+    CAST(NULL AS STRING) AS `0FISCVARNT`,        -- no source mapping defined (_missing_fields)
+    DOC_TYPE                                     -- calculated column: AG AS DOC_TYPE
+  FROM src_ZTSOBJ_C
+)
+
+SELECT
+  COALESCE(COMP_CODE, '') AS COMP_CODE,
+  DOC_TYPE,
+  COALESCE(CAST(SALESEMPLY AS NUMERIC), 0) AS SALESEMPLY,
+  IMODOCCATR,
+  AMNT,
+  STAT_CURR,
+  S4SOLD_TO,
+  CUST_GRP1,
+  CPR_CREATE,
+  LOC_CURRCY,
+  AB_ITEM,
+  CRMSALORGX,
+  PR_CAT_SAL,
+  `0FISCYEAR`,
+  `0FISCVARNT`
+FROM staged_ZSEC_SALA
+-- INCREMENTAL NOTE: no timestamp column available for delta filter;
+-- full reload on every run. Add a WHERE clause when a delta key exists.

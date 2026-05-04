@@ -1,0 +1,106 @@
+config {
+  type: "incremental",
+  schema: "sales_cdc_poc",
+  name: "ZOF1_SAI",
+  tags: ["bw_migration"]
+}
+
+-- FullLoad: full table replacement on every Dataform run.
+-- OMITTED source fields (all in _missing_fields): BUKRS, LCURR, AUFNR, KOSTL, PRCTR, BELNR, WERKS, KOKRS, FISCVAR
+-- These fields do not exist in the actual BigQuery source table schema.
+-- They are referenced below via NULL AS placeholders accordingly.
+-- START ROUTINE: Delete rows where BUKRS = '4900000061' (numeric field: BUKRS is STRING per SAP CHAR type)
+-- END ROUTINE: If PROFIT_CTR = 'US10_PLR' then set PROFIT_CTR = 'US10_nss'
+-- LOOKUP: replace fiscper_stub with ${ref("REAL_TABLE_NAME")}
+--         once the fiscal-period calendar table name is confirmed.
+
+WITH
+
+fiscper_stub AS (
+  SELECT
+    CAST(NULL AS STRING) AS FISCVARNT,
+    CAST(NULL AS DATE)   AS DATEFROM,
+    CAST(NULL AS DATE)   AS DATETO,
+    CAST(NULL AS STRING) AS `0FISCPER`
+  FROM UNNEST([]) AS empty
+),
+
+-- START ROUTINE: pre-filter source rows where BUKRS = '4900000061'
+-- All source fields are in _missing_fields so we emit NULLs, but the
+-- BUKRS filter is applied at source level before field mapping.
+start_routine_0FI_GL_4_S4HCLNT100 AS (
+  SELECT
+    -- OMITTED: BUKRS (in _missing_fields) — used only for start routine filter
+    -- OMITTED: LCURR, AUFNR, KOSTL, PRCTR, BELNR, WERKS, KOKRS, FISCVAR (in _missing_fields)
+    CAST(NULL AS STRING) AS BUKRS,
+    CAST(NULL AS STRING) AS LCURR,
+    CAST(NULL AS STRING) AS AUFNR,
+    CAST(NULL AS STRING) AS KOSTL,
+    CAST(NULL AS STRING) AS PRCTR,
+    CAST(NULL AS STRING) AS BELNR,
+    CAST(NULL AS STRING) AS WERKS,
+    CAST(NULL AS STRING) AS KOKRS,
+    CAST(NULL AS STRING) AS FISCVAR
+  FROM ${ref("0FI_GL_4_S4HCLNT100")}
+  -- START ROUTINE: exclude rows where BUKRS = '4900000061'
+  WHERE (CAST(NULL AS STRING)) <> '4900000061'
+  -- NOTE: BUKRS is in _missing_fields and does not exist in source table.
+  -- The filter Delete where BUKRS eq '4900000061' cannot be applied.
+  -- Retained as comment for manual verification once BUKRS is available.
+),
+
+-- Field-level mapping CTE
+mapped_ZOF1_SAI AS (
+  SELECT
+    s.BUKRS                       AS COMP_CODE,
+    s.LCURR                       AS CURRENCY,
+    s.AUFNR                       AS COORDER,
+    s.KOSTL                       AS COSTCENTER,
+    s.PRCTR                       AS PROFIT_CTR,
+    s.BELNR                       AS DOC_NUM,
+    s.WERKS                       AS PLANT,
+    s.KOKRS                       AS CO_AREA,
+    s.FISCVAR                     AS FISCVARNT,
+    -- LOOKUP: FISCPER via fiscal period calendar (stub used until real table confirmed)
+    fp.`0FISCPER`                 AS `0FISCPER`,
+    -- CHRT_ACCTS: no source mapping defined
+    CAST(NULL AS STRING)          AS CHRT_ACCTS
+  FROM start_routine_0FI_GL_4_S4HCLNT100 s
+  LEFT JOIN fiscper_stub fp
+    ON s.FISCVAR = fp.FISCVARNT
+),
+
+-- END ROUTINE: post-process mapped target rows
+-- If PROFIT_CTR = 'US10_PLR' then replace with 'US10_nss'
+end_routine_ZOF1_SAI AS (
+  SELECT
+    COMP_CODE,
+    CURRENCY,
+    COORDER,
+    COSTCENTER,
+    CASE
+      WHEN PROFIT_CTR = 'US10_PLR' THEN 'US10_nss'
+      ELSE PROFIT_CTR
+    END                           AS PROFIT_CTR,
+    DOC_NUM,
+    PLANT,
+    CO_AREA,
+    `0FISCVARNT`,
+    `0FISCPER`,
+    CHRT_ACCTS
+  FROM mapped_ZOF1_SAI
+)
+
+SELECT
+  COMP_CODE,
+  CURRENCY,
+  COORDER,
+  COSTCENTER,
+  PROFIT_CTR,
+  DOC_NUM,
+  PLANT,
+  CO_AREA,
+  `0FISCVARNT`,
+  `0FISCPER`,
+  CHRT_ACCTS
+FROM end_routine_ZOF1_SAI

@@ -1,0 +1,55 @@
+config {
+  type: "incremental",
+  schema: "sales_cdc_poc",
+  name: "ZSEC_PURA",
+  uniqueKey: ["COMP_CODE", "DOC_TYPE", "SALESEMPLY"],
+  tags: ["bw_migration"]
+}
+
+-- MERGE load: key fields are COMP_CODE, DOC_TYPE, SALESEMPLY
+
+WITH
+src_ZTSOBJ_C AS (
+  SELECT
+    -- OMITTED: COMP_CODE, SALESEMPLY, IMODOCCATR, AMNT, STAT_CURR, S4SOLD_TO,
+    --          CUST_GRP1, CPR_CREATE, LOC_CURRCY, AB_ITEM, CRMSALORGX,
+    --          PR_CAT_SAL, 0FISCYEAR, 0FISCVARNT
+    --          (all listed in _missing_fields; not present in source table schema)
+    -- Calculated column: G2 AS DOC_TYPE
+    'G2' AS DOC_TYPE,
+    CAST(NULL AS STRING) AS COMP_CODE,
+    CAST(NULL AS STRING) AS SALESEMPLY,
+    CAST(NULL AS STRING) AS IMODOCCATR,
+    CAST(NULL AS NUMERIC) AS AMNT,
+    CAST(NULL AS STRING) AS STAT_CURR,
+    CAST(NULL AS STRING) AS S4SOLD_TO,
+    CAST(NULL AS STRING) AS CUST_GRP1,
+    CAST(NULL AS DATE) AS CPR_CREATE,
+    CAST(NULL AS STRING) AS LOC_CURRCY,
+    CAST(NULL AS STRING) AS AB_ITEM,
+    CAST(NULL AS STRING) AS CRMSALORGX,
+    CAST(NULL AS STRING) AS PR_CAT_SAL,
+    CAST(NULL AS STRING) AS `0FISCYEAR`,
+    CAST(NULL AS STRING) AS `0FISCVARNT`
+  FROM ${ref("ZTSOBJ_C")}
+)
+
+SELECT
+  COALESCE(CAST(COMP_CODE AS STRING), '') AS COMP_CODE,
+  COALESCE(CAST(SALESEMPLY AS STRING), '')  AS SALESEMPLY,
+  IMODOCCATR,
+  AMNT,
+  STAT_CURR,
+  S4SOLD_TO,
+  CUST_GRP1,
+  CPR_CREATE,
+  LOC_CURRCY,
+  AB_ITEM,
+  CRMSALORGX,
+  PR_CAT_SAL,
+  `0FISCYEAR`,
+  `0FISCVARNT`,
+  COALESCE(DOC_TYPE, 'G2') AS DOC_TYPE
+FROM src_ZTSOBJ_C
+${when(incremental(), `-- INCREMENTAL NOTE: no timestamp column available for delta filter;
+-- full reload on every run. Add a WHERE clause when a delta key exists.`)}

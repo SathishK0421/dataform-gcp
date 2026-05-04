@@ -1,0 +1,58 @@
+config {
+  type: "incremental",
+  schema: "sales_cdc_poc",
+  name: "ZSEC_PURB",
+  uniqueKey: ["COMP_CODE", "DOC_TYPE", "SALESEMPLY"],
+  tags: ["bw_migration"]
+}
+
+-- MERGE load: key fields are COMP_CODE, DOC_TYPE, SALESEMPLY
+
+WITH
+src_ZSEC_PURA AS (
+  SELECT
+    -- OMITTED: COMP_CODE, SALESEMPLY, IMODOCCATR, AMNT, STAT_CURR, S4SOLD_TO,
+    --          CUST_GRP1, CPR_CREATE, LOC_CURRCY, AB_ITEM, CRMSALORGX,
+    --          PR_CAT_SAL, 0FISCYEAR, 0FISCVARNT
+    -- (all listed in _missing_fields; not present in source table schema)
+    -- Calculated column: CBG0 AS DOC_TYPE
+    CAST(NULL AS STRING)      AS COMP_CODE,
+    CAST(NULL AS NUMERIC(18,0)) AS SALESEMPLY,
+    CAST(NULL AS STRING)      AS IMODOCCATR,
+    CAST(NULL AS NUMERIC)     AS AMNT,
+    CAST(NULL AS STRING)      AS STAT_CURR,
+    CAST(NULL AS STRING)      AS S4SOLD_TO,
+    CAST(NULL AS STRING)      AS CUST_GRP1,
+    CAST(NULL AS STRING)      AS CPR_CREATE,
+    CAST(NULL AS STRING)      AS LOC_CURRCY,
+    CAST(NULL AS STRING)      AS AB_ITEM,
+    CAST(NULL AS STRING)      AS CRMSALORGX,
+    CAST(NULL AS STRING)      AS PR_CAT_SAL,
+    CAST(NULL AS STRING)      AS `0FISCYEAR`,
+    CAST(NULL AS STRING)      AS `0FISCVARNT`,
+    -- Calculated column: CBG0 AS DOC_TYPE
+    -- CBG0 is not defined in _field_name_map or Source; emitting NULL
+    CAST(NULL AS STRING)      AS DOC_TYPE  -- ROUTINE: CBG0 source not resolvable; manual mapping required
+  FROM ${ref("ZSEC_PURA")}
+)
+
+SELECT
+  COALESCE(COMP_CODE,   CAST(NULL AS STRING))  AS COMP_CODE,
+  SALESEMPLY                                    AS SALESEMPLY,
+  IMODOCCATR                                    AS IMODOCCATR,
+  AMNT                                          AS AMNT,
+  STAT_CURR                                     AS STAT_CURR,
+  S4SOLD_TO                                     AS S4SOLD_TO,
+  CUST_GRP1                                     AS CUST_GRP1,
+  CPR_CREATE                                    AS CPR_CREATE,
+  LOC_CURRCY                                    AS LOC_CURRCY,
+  AB_ITEM                                       AS AB_ITEM,
+  CRMSALORGX                                    AS CRMSALORGX,
+  PR_CAT_SAL                                    AS PR_CAT_SAL,
+  `0FISCYEAR`                                   AS `0FISCYEAR`,
+  `0FISCVARNT`                                  AS `0FISCVARNT`,
+  COALESCE(DOC_TYPE,    CAST(NULL AS STRING))   AS DOC_TYPE
+FROM src_ZSEC_PURA
+${when(incremental(), `WHERE SALESEMPLY > (
+    SELECT MAX(SALESEMPLY) FROM ${self()}
+)`)}

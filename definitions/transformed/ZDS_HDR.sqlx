@@ -1,0 +1,115 @@
+config {
+  type: "incremental",
+  schema: "sales_cdc_poc",
+  name: "ZDS_HDR",
+  tags: ["bw_migration"]
+}
+
+-- FullLoad: full table replacement on every Dataform run.
+-- OMITTED (all fields listed in _missing_fields; source table columns used directly via _field_name_map)
+
+WITH
+src_2LIS_11_VAHDR AS (
+  SELECT
+    -- All fields appear in _missing_fields, meaning they are not yet confirmed
+    -- in the BigQuery source schema. Emitting NULLs per rule 23 / _missing_fields.
+    -- Once confirmed present, replace each NULL with the actual column reference.
+    -- OMITTED: ROCANCEL (listed in _missing_fields)
+    CAST(NULL AS STRING)  AS ROCANCEL,
+    -- OMITTED: VBELN (listed in _missing_fields; _numc_fields)
+    CAST(NULL AS STRING)  AS VBELN,
+    -- OMITTED: ANGDT (listed in _missing_fields)
+    CAST(NULL AS STRING)  AS ANGDT,
+    -- OMITTED: AUART (listed in _missing_fields)
+    CAST(NULL AS STRING)  AS AUART,
+    -- OMITTED: AUGRU (listed in _missing_fields)
+    CAST(NULL AS STRING)  AS AUGRU,
+    -- OMITTED: BNDDT (listed in _missing_fields)
+    CAST(NULL AS STRING)  AS BNDDT,
+    -- OMITTED: BUKRS (listed in _missing_fields)
+    CAST(NULL AS STRING)  AS BUKRS,
+    -- OMITTED: ERDAT (listed in _missing_fields; _date_fields — direct DATE, no PARSE_DATE)
+    CAST(NULL AS DATE)    AS ERDAT,
+    -- OMITTED: FAKSK (listed in _missing_fields)
+    CAST(NULL AS STRING)  AS FAKSK,
+    -- OMITTED: HWAER (listed in _missing_fields)
+    CAST(NULL AS STRING)  AS HWAER,
+    -- OMITTED: KUNNR (listed in _missing_fields; _numc_fields)
+    CAST(NULL AS STRING)  AS KUNNR,
+    -- OMITTED: KURST (listed in _missing_fields)
+    CAST(NULL AS STRING)  AS KURST,
+    -- OMITTED: KVGR1 (listed in _missing_fields)
+    CAST(NULL AS STRING)  AS KVGR1,
+    -- OMITTED: KVGR2 (listed in _missing_fields)
+    CAST(NULL AS STRING)  AS KVGR2,
+    -- OMITTED: KVGR3 (listed in _missing_fields)
+    CAST(NULL AS STRING)  AS KVGR3,
+    -- OMITTED: KVGR4 (listed in _missing_fields)
+    CAST(NULL AS STRING)  AS KVGR4,
+    -- OMITTED: KVGR5 (listed in _missing_fields)
+    CAST(NULL AS STRING)  AS KVGR5,
+    -- OMITTED: LIFSK (listed in _missing_fields)
+    CAST(NULL AS STRING)  AS LIFSK,
+    -- OMITTED: PVRTNR (listed in _missing_fields)
+    CAST(NULL AS STRING)  AS PVRTNR,
+    -- OMITTED: STWAE (listed in _missing_fields)
+    CAST(NULL AS STRING)  AS STWAE,
+    -- OMITTED: VBTYP (listed in _missing_fields)
+    CAST(NULL AS STRING)  AS VBTYP,
+    -- OMITTED: VDATU (listed in _missing_fields; _date_fields — direct DATE, no PARSE_DATE)
+    CAST(NULL AS DATE)    AS VDATU,
+    -- OMITTED: VKBUR (listed in _missing_fields)
+    CAST(NULL AS STRING)  AS VKBUR,
+    -- OMITTED: VKGRP (listed in _missing_fields)
+    CAST(NULL AS STRING)  AS VKGRP,
+    -- OMITTED: VKORG (listed in _missing_fields)
+    CAST(NULL AS STRING)  AS VKORG,
+    -- OMITTED: VTWEG (listed in _missing_fields)
+    CAST(NULL AS STRING)  AS VTWEG,
+    -- OMITTED: WAERK (listed in _missing_fields)
+    CAST(NULL AS STRING)  AS WAERK,
+    -- OMITTED: ABDIS (listed in _missing_fields)
+    CAST(NULL AS STRING)  AS ABDIS,
+    -- OMITTED: SPARA (listed in _missing_fields)
+    CAST(NULL AS STRING)  AS SPARA,
+    -- OMITTED: VGTYP_AK (listed in _missing_fields)
+    CAST(NULL AS STRING)  AS VGTYP_AK
+  FROM UNNEST([STRUCT(1 AS dummy)])
+)
+
+SELECT
+  ROCANCEL,
+  VBELN,
+  ANGDT,
+  AUART,
+  AUGRU,
+  BNDDT,
+  BUKRS,
+  ERDAT,
+  FAKSK,
+  HWAER,
+  KUNNR,
+  KURST,
+  KVGR1,
+  KVGR2,
+  KVGR3,
+  KVGR4,
+  KVGR5,
+  LIFSK,
+  PVRTNR,
+  STWAE,
+  VBTYP,
+  VDATU,
+  VKBUR,
+  VKGRP,
+  VKORG,
+  VTWEG,
+  WAERK,
+  ABDIS,
+  SPARA,
+  VGTYP_AK,
+  ANZAU,
+  PERIV,
+  ODQ_CHANGEMODE,
+  ODQ_ENTITYCNTR
+FROM src_2LIS_11_VAHDR

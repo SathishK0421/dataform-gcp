@@ -1,6 +1,0 @@
-config {
-    type: "declaration",
-    database: "sapanalytics-309913",
-    schema: "sales_raw_poc",
-    name: "BIW_ISU_ESTA"
-}

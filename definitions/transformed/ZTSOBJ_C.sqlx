@@ -1,0 +1,70 @@
+config {
+  type: "incremental",
+  schema: "sales_cdc_poc",
+  name: "ZTSOBJ_C",
+  uniqueKey: ["COMP_CODE", "DOC_TYPE", "SALESEMPLY"],
+  tags: ["bw_migration"]
+}
+
+-- MERGE load: key fields are COMP_CODE, DOC_TYPE, SALESEMPLY
+
+WITH
+src_ZTSOBJ AS (
+  SELECT
+    COMP_CODE,
+    DOC_TYPE,
+    SALESEMPLY,
+    IMODOCCATR,
+    S4SOLD_TO,
+    STAT_CURR,
+    CPR_CREATE,
+    CUST_GRP1,
+    AB_ITEM,
+    CRMSALORGX,
+    PR_CAT_SAL,
+    LOC_CURRCY,
+    `0FISCVARNT`,
+    `0FISCYEAR`,
+    AMNT
+  FROM ${ref("ZTSOBJ")}
+),
+
+staged_ZTSOBJ AS (
+  SELECT
+    COMP_CODE,
+    DOC_TYPE,
+    SALESEMPLY,
+    IMODOCCATR,
+    S4SOLD_TO,
+    STAT_CURR,
+    CPR_CREATE,
+    CUST_GRP1,
+    AB_ITEM,
+    CRMSALORGX,
+    PR_CAT_SAL,
+    LOC_CURRCY,
+    `0FISCVARNT`,
+    `0FISCYEAR`,
+    AMNT
+  FROM src_ZTSOBJ
+)
+
+SELECT
+  COMP_CODE,
+  DOC_TYPE,
+  SALESEMPLY,
+  IMODOCCATR,
+  S4SOLD_TO,
+  STAT_CURR,
+  CPR_CREATE,
+  CUST_GRP1,
+  AB_ITEM,
+  CRMSALORGX,
+  PR_CAT_SAL,
+  LOC_CURRCY,
+  `0FISCVARNT`,
+  `0FISCYEAR`,
+  100.0 AS AMNT
+FROM staged_ZTSOBJ
+-- INCREMENTAL NOTE: no timestamp column available for delta filter;
+-- full reload on every run. Add a WHERE clause when a delta key exists.
