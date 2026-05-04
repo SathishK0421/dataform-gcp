@@ -1,0 +1,128 @@
+config {
+  type: "incremental",
+  schema: "sales_cdc_poc",
+  name: "ZDS_HDR",
+  tags: ["bw_migration"]
+}
+
+-- FullLoad: full table replacement on every Dataform run.
+
+WITH
+src_2LIS_11_VAHDR AS (
+  SELECT
+    ROCANCEL,
+    VBELN,
+    ANGDT,
+    AUART,
+    AUGRU,
+    BNDDT,
+    BUKRS,
+    ERDAT,
+    FAKSK,
+    HWAER,
+    KUNNR,
+    KURST,
+    KVGR1,
+    KVGR2,
+    KVGR3,
+    KVGR4,
+    KVGR5,
+    LIFSK,
+    PVRTNR,
+    STWAE,
+    VBTYP,
+    VDATU,
+    VKBUR,
+    VKGRP,
+    VKORG,
+    VTWEG,
+    WAERK,
+    ABDIS,
+    SPARA,
+    VGTYP_AK,
+    ANZAU,
+    PERIV,
+    ODQ_CHANGEMODE,
+    ODQ_ENTITYCNTR
+  FROM ${ref("2LIS_11_VAHDR_S4HCLNT100")}
+),
+
+staged_ZDS_HDR AS (
+  SELECT
+    ROCANCEL          AS ROCANCEL,
+    VBELN             AS VBELN,
+    PARSE_DATE('%Y%m%d', ANGDT) AS ANGDT,
+    AUART             AS AUART,
+    AUGRU             AS AUGRU,
+    PARSE_DATE('%Y%m%d', BNDDT) AS BNDDT,
+    BUKRS             AS BUKRS,
+    PARSE_DATE('%Y%m%d', ERDAT) AS ERDAT,
+    FAKSK             AS FAKSK,
+    -- _waers_fields: HWAER is a currency key, kept as STRING
+    HWAER             AS HWAER,
+    -- _numc_fields: KUNNR is zero-padded STRING, never cast to INT64
+    KUNNR             AS KUNNR,
+    KURST             AS KURST,
+    KVGR1             AS KVGR1,
+    KVGR2             AS KVGR2,
+    KVGR3             AS KVGR3,
+    KVGR4             AS KVGR4,
+    KVGR5             AS KVGR5,
+    LIFSK             AS LIFSK,
+    PVRTNR            AS PVRTNR,
+    -- _waers_fields: STWAE is a currency key, kept as STRING
+    STWAE             AS STWAE,
+    VBTYP             AS VBTYP,
+    PARSE_DATE('%Y%m%d', VDATU) AS VDATU,
+    VKBUR             AS VKBUR,
+    VKGRP             AS VKGRP,
+    VKORG             AS VKORG,
+    VTWEG             AS VTWEG,
+    -- _waers_fields: WAERK is a currency key, kept as STRING
+    WAERK             AS WAERK,
+    ABDIS             AS ABDIS,
+    SPARA             AS SPARA,
+    VGTYP_AK          AS VGTYP_AK,
+    ANZAU             AS ANZAU,
+    PERIV             AS PERIV,
+    ODQ_CHANGEMODE    AS ODQ_CHANGEMODE,
+    ODQ_ENTITYCNTR    AS ODQ_ENTITYCNTR
+  FROM src_2LIS_11_VAHDR
+)
+
+SELECT
+  ROCANCEL,
+  VBELN,
+  ANGDT,
+  AUART,
+  AUGRU,
+  BNDDT,
+  BUKRS,
+  ERDAT,
+  FAKSK,
+  HWAER,
+  KUNNR,
+  KURST,
+  KVGR1,
+  KVGR2,
+  KVGR3,
+  KVGR4,
+  KVGR5,
+  LIFSK,
+  PVRTNR,
+  STWAE,
+  VBTYP,
+  VDATU,
+  VKBUR,
+  VKGRP,
+  VKORG,
+  VTWEG,
+  WAERK,
+  ABDIS,
+  SPARA,
+  VGTYP_AK,
+  ANZAU,
+  PERIV,
+  ODQ_CHANGEMODE,
+  ODQ_ENTITYCNTR
+FROM staged_ZDS_HDR

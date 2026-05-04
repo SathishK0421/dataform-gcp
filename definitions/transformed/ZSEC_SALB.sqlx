@@ -1,0 +1,70 @@
+config {
+  type: "incremental",
+  schema: "sales_cdc_poc",
+  name: "ZSEC_SALB",
+  uniqueKey: ["COMP_CODE", "DOC_TYPE", "SALESEMPLY"],
+  tags: ["bw_migration"]
+}
+
+-- MERGE load: key fields are COMP_CODE, DOC_TYPE, SALESEMPLY
+-- INCREMENTAL NOTE: no timestamp column available for delta filter;
+-- full reload on every run. Add a WHERE clause when a delta key exists.
+
+WITH
+src_ZSEC_SALA AS (
+  SELECT
+    COMP_CODE,
+    SALESEMPLY,
+    IMODOCCATR,
+    AMNT,
+    STAT_CURR,
+    S4SOLD_TO,
+    CUST_GRP1,
+    CPR_CREATE,
+    LOC_CURRCY,
+    AB_ITEM,
+    CRMSALORGX,
+    PR_CAT_SAL,
+    `0FISCYEAR`,
+    `0FISCVARNT`
+  FROM ${ref("ZSEC_SALA")}
+),
+
+staged_ZSEC_SALB AS (
+  SELECT
+    COALESCE(s.COMP_CODE, '')    AS COMP_CODE,
+    COALESCE(s.SALESEMPLY, '')   AS SALESEMPLY,
+    s.IMODOCCATR                 AS IMODOCCATR,
+    s.AMNT                       AS AMNT,
+    s.STAT_CURR                  AS STAT_CURR,
+    s.S4SOLD_TO                  AS S4SOLD_TO,
+    s.CUST_GRP1                  AS CUST_GRP1,
+    s.CPR_CREATE                 AS CPR_CREATE,
+    s.LOC_CURRCY                 AS LOC_CURRCY,
+    s.AB_ITEM                    AS AB_ITEM,
+    s.CRMSALORGX                 AS CRMSALORGX,
+    s.PR_CAT_SAL                 AS PR_CAT_SAL,
+    s.`0FISCYEAR`                AS `0FISCYEAR`,
+    s.`0FISCVARNT`               AS `0FISCVARNT`,
+    -- Calculated_Column: TA AS DOC_TYPE
+    'TA'                         AS DOC_TYPE
+  FROM src_ZSEC_SALA s
+)
+
+SELECT
+  COMP_CODE,
+  SALESEMPLY,
+  IMODOCCATR,
+  AMNT,
+  STAT_CURR,
+  S4SOLD_TO,
+  CUST_GRP1,
+  CPR_CREATE,
+  LOC_CURRCY,
+  AB_ITEM,
+  CRMSALORGX,
+  PR_CAT_SAL,
+  `0FISCYEAR`,
+  `0FISCVARNT`,
+  DOC_TYPE
+FROM staged_ZSEC_SALB

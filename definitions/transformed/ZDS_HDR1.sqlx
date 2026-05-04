@@ -1,0 +1,64 @@
+config {
+  type: "incremental",
+  schema: "sales_cdc_poc",
+  name: "ZDS_HDR1",
+  uniqueKey: ["SALESEMPLY", "DOC_TYPE", "COMP_CODE"],
+  tags: ["bw_migration"]
+}
+
+-- MERGE load: key fields are SALESEMPLY, DOC_TYPE, COMP_CODE
+
+WITH
+src_ZDS_HDR AS (
+  SELECT
+    VBELN,
+    PVRTNR,
+    AUART,
+    STWAE,
+    KUNNR,
+    ERDAT,
+    KVGR1,
+    VKORG,
+    BUKRS,
+    HWAER
+  FROM ${ref("ZDS_HDR")}
+),
+
+staged_ZDS_HDR1 AS (
+  SELECT
+    -- _numc_fields: VBELN, KUNNR → keep as STRING with '' default
+    COALESCE(s.VBELN, '')   AS IMODOCCATR,
+    COALESCE(s.PVRTNR, '')  AS SALESEMPLY,
+    s.AUART                 AS DOC_TYPE,
+    -- _waers_fields: STWAE → always STRING
+    s.STWAE                 AS STAT_CURR,
+    -- _numc_fields: KUNNR → keep as STRING with '' default
+    COALESCE(s.KUNNR, '')   AS S4SOLD_TO,
+    -- _date_fields: ERDAT is ABAP DATS (YYYYMMDD string) → must PARSE_DATE
+    PARSE_DATE('%Y%m%d', s.ERDAT) AS CPR_CREATE,
+    s.KVGR1                 AS CUST_GRP1,
+    s.VKORG                 AS CRMSALORGX,
+    COALESCE(s.BUKRS, '')   AS COMP_CODE,
+    -- _waers_fields: HWAER → always STRING
+    s.HWAER                 AS LOC_CURRCY
+    -- NOTE: Calculated_Column entry states "SOURCE & TARGET FIELD SAME,
+    --       NO LOGIC REQUIRED AS 0FISCVARNT" — no fiscal variant field
+    --       is present in the Source list; no additional column emitted.
+  FROM src_ZDS_HDR s
+)
+
+SELECT
+  IMODOCCATR,
+  SALESEMPLY,
+  DOC_TYPE,
+  STAT_CURR,
+  S4SOLD_TO,
+  CPR_CREATE,
+  CUST_GRP1,
+  CRMSALORGX,
+  COMP_CODE,
+  LOC_CURRCY
+FROM staged_ZDS_HDR1
+${when(incremental(), `WHERE CPR_CREATE > (
+    SELECT MAX(CPR_CREATE) FROM ${self()}
+)`)}

@@ -1,0 +1,114 @@
+config {
+  type: "incremental",
+  schema: "sales_cdc_poc",
+  name: "ZOF1_SAI",
+  tags: ["bw_migration"]
+}
+
+-- FullLoad: full table replacement on every Dataform run.
+
+WITH
+
+src_0FI_GL_4 AS (
+  SELECT
+    BUKRS,
+    LCURR,
+    AUFNR,
+    KOSTL,
+    PRCTR,
+    BELNR,
+    WERKS,
+    KOKRS,
+    FISCVAR,
+    BUDAT
+  FROM ${ref("0FI_GL_4_S4HCLNT100")}
+),
+
+-- START ROUTINE: Delete rows where BUKRS = '4900000061'
+start_routine_0FI_GL_4 AS (
+  SELECT
+    BUKRS,
+    LCURR,
+    AUFNR,
+    KOSTL,
+    PRCTR,
+    BELNR,
+    WERKS,
+    KOKRS,
+    FISCVAR,
+    BUDAT
+  FROM src_0FI_GL_4
+  WHERE BUKRS <> '4900000061'
+),
+
+-- LOOKUP: replace fiscper_stub with ${ref("REAL_TABLE_NAME")}
+--         once the fiscal-period calendar table name is confirmed.
+fiscper_stub AS (
+  -- LOOKUP: verify fiscal calendar table name before deploying
+  SELECT
+    CAST(NULL AS STRING) AS FISCVARNT,
+    CAST(NULL AS DATE)   AS DATEFROM,
+    CAST(NULL AS DATE)   AS DATETO,
+    CAST(NULL AS STRING) AS `0FISCPER`
+  FROM UNNEST([])
+),
+
+staged_ZOF1_SAI AS (
+  SELECT
+    s.BUKRS                          AS COMP_CODE,
+    -- _waers_fields: LCURR is a currency key — keep as STRING
+    s.LCURR                          AS CURRENCY,
+    -- _numc_fields: AUFNR is zero-padded string — keep as STRING
+    COALESCE(s.AUFNR, '')            AS COORDER,
+    s.KOSTL                          AS COSTCENTER,
+    s.PRCTR                          AS PROFIT_CTR,
+    -- _numc_fields: BELNR is zero-padded string — keep as STRING
+    COALESCE(s.BELNR, '')            AS DOC_NUM,
+    s.WERKS                          AS PLANT,
+    s.KOKRS                          AS CO_AREA,
+    -- FISCVAR maps to 0FISCVARNT; keep as STRING
+    s.FISCVAR                        AS `0FISCVARNT`,
+    -- LOOKUP: FISCPER derived via fiscal calendar join on FISCVARNT/date range
+    fp.`0FISCPER`                    AS `0FISCPER`,
+    -- Calculated_Column: CHRT_ACCTS has no source expression defined
+    NULL                             AS CHRT_ACCTS,
+    PARSE_DATE('%Y%m%d', s.BUDAT)    AS `0CALDAY`
+  FROM start_routine_0FI_GL_4 s
+  LEFT JOIN fiscper_stub fp
+    ON s.FISCVAR = fp.FISCVARNT
+),
+
+-- END ROUTINE: if PROFIT_CTR = 'US10_PLR' then replace with 'US10_nss'
+end_routine_ZOF1_SAI AS (
+  SELECT
+    COMP_CODE,
+    CURRENCY,
+    COORDER,
+    COSTCENTER,
+    CASE
+      WHEN PROFIT_CTR = 'US10_PLR' THEN 'US10_nss'
+      ELSE PROFIT_CTR
+    END                              AS PROFIT_CTR,
+    DOC_NUM,
+    PLANT,
+    CO_AREA,
+    `0FISCVARNT`,
+    `0FISCPER`,
+    CHRT_ACCTS,
+    `0CALDAY`
+  FROM staged_ZOF1_SAI
+)
+
+SELECT
+  COMP_CODE,
+  CURRENCY,
+  COORDER,
+  COSTCENTER,
+  PROFIT_CTR,
+  DOC_NUM,
+  PLANT,
+  CO_AREA,
+  `0FISCVARNT`,
+  `0FISCPER`,
+  CHRT_ACCTS
+FROM end_routine_ZOF1_SAI

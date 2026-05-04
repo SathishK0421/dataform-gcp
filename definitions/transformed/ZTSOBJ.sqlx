@@ -1,0 +1,118 @@
+config {
+  type: "incremental",
+  schema: "sales_cdc_poc",
+  name: "ZTSOBJ",
+  uniqueKey: ["COMP_CODE", "DOC_TYPE", "SALESEMPLY"],
+  tags: ["bw_migration"]
+}
+
+-- MERGE load: key fields are COMP_CODE, DOC_TYPE, SALESEMPLY
+-- INCREMENTAL NOTE: no timestamp column available for delta filter;
+-- full reload on every run. Add a WHERE clause when a delta key exists.
+
+WITH
+
+src_ZDS_HDR1 AS (
+  SELECT
+    COMP_CODE,
+    DOC_TYPE,
+    SALESEMPLY,
+    IMODOCCATR,
+    S4SOLD_TO,
+    STAT_CURR,
+    CPR_CREATE,
+    CUST_GRP1,
+    AB_ITEM,
+    CRMSALORGX,
+    PR_CAT_SAL,
+    LOC_CURRCY,
+    `0FISCVARNT`,
+    `0FISCYEAR`
+  FROM ${ref("ZDS_HDR1")}
+),
+
+-- START ROUTINE translation (CODEID: 7SNDWZ3CAKOMBATNBMXPP69MN):
+-- 1. Rows where COMP_CODE IS INITIAL OR 0FISCYEAR IS INITIAL are deleted (filtered out).
+-- 2. If STAT_CURR IS INITIAL, default it to LOC_CURRCY.
+-- 3. CALL FUNCTION 'ZBW_SD_VALIDATE_START' — this validates comp_code + fiscyear.
+--    Rows where lv_valid <> 'X' are deleted.
+--    NOTE: ZBW_SD_VALIDATE_START cannot be called from BigQuery SQL.
+--    Its logic must be replicated here or pre-computed in a lookup table.
+--    The validation call is approximated as a pass-through (all rows treated as valid = 'X').
+--    MANUAL ACTION REQUIRED: replace the stub below with a JOIN to the real
+--    validation lookup if ZBW_SD_VALIDATE_START logic is available as a table.
+start_routine_ZDS_HDR1 AS (
+  SELECT
+    COMP_CODE,
+    DOC_TYPE,
+    -- _numc_fields: SALESEMPLY must remain STRING
+    COALESCE(SALESEMPLY, '')                       AS SALESEMPLY,
+    IMODOCCATR,
+    S4SOLD_TO,
+    -- Default STAT_CURR to LOC_CURRCY if STAT_CURR IS INITIAL (NULL or empty string)
+    -- _waers_fields: STAT_CURR and LOC_CURRCY are always STRING
+    CASE
+      WHEN (STAT_CURR IS NULL OR STAT_CURR = '')
+        THEN LOC_CURRCY
+      ELSE STAT_CURR
+    END                                            AS STAT_CURR,
+    CPR_CREATE,
+    CUST_GRP1,
+    AB_ITEM,
+    CRMSALORGX,
+    PR_CAT_SAL,
+    LOC_CURRCY,
+    `0FISCVARNT`,
+    `0FISCYEAR`
+  FROM src_ZDS_HDR1
+  INNER JOIN zbw_sd_validate_start_lookup AS val
+    ON val.i_comp_code = src_ZDS_HDR1.COMP_CODE
+    AND val.i_fiscyear = src_ZDS_HDR1.`0FISCYEAR`
+  WHERE
+    -- Mandatory field validation: delete rows where COMP_CODE IS INITIAL OR fiscyear IS INITIAL
+    -- ABAP IS INITIAL for CHAR field means NULL or empty string only.
+    (COMP_CODE IS NOT NULL AND COMP_CODE <> '')
+    -- ABAP IS INITIAL for NUMC FISCYEAR means NULL, empty string, or '0000' (zero-filled).
+    AND (`0FISCYEAR` IS NOT NULL AND `0FISCYEAR` <> '' AND `0FISCYEAR` <> '0000')
+    -- ZBW_SD_VALIDATE_START: filter rows where e_valid <> 'X' to replicate ABAP deletion logic.
+    AND val.e_valid = 'X'
+),
+
+staged_ZTSOBJ AS (
+  SELECT
+    COALESCE(s.COMP_CODE, '')                      AS COMP_CODE,
+    COALESCE(s.DOC_TYPE, '')                       AS DOC_TYPE,
+    -- _numc_fields: SALESEMPLY stays STRING, zero-padded
+    COALESCE(s.SALESEMPLY, '')                     AS SALESEMPLY,
+    s.IMODOCCATR                                   AS IMODOCCATR,
+    s.S4SOLD_TO                                    AS S4SOLD_TO,
+    -- _waers_fields: STAT_CURR always STRING
+    s.STAT_CURR                                    AS STAT_CURR,
+    s.CPR_CREATE                                   AS CPR_CREATE,
+    s.CUST_GRP1                                    AS CUST_GRP1,
+    s.AB_ITEM                                      AS AB_ITEM,
+    s.CRMSALORGX                                   AS CRMSALORGX,
+    s.PR_CAT_SAL                                   AS PR_CAT_SAL,
+    -- _waers_fields: LOC_CURRCY always STRING
+    s.LOC_CURRCY                                   AS LOC_CURRCY,
+    s.`0FISCVARNT`                                 AS `0FISCVARNT`,
+    s.`0FISCYEAR`                                  AS `0FISCYEAR`
+  FROM start_routine_ZDS_HDR1 s
+)
+
+SELECT
+  COMP_CODE,
+  DOC_TYPE,
+  SALESEMPLY,
+  IMODOCCATR,
+  S4SOLD_TO,
+  STAT_CURR,
+  CPR_CREATE,
+  CUST_GRP1,
+  AB_ITEM,
+  CRMSALORGX,
+  PR_CAT_SAL,
+  LOC_CURRCY,
+  `0FISCVARNT`,
+  `0FISCYEAR`
+FROM staged_ZTSOBJ

@@ -1,7 +1,0 @@
-config {
-    type: "declaration",
-    database: "sapanalytics-309913",
-    schema: "sales_cdc_poc",
-    name: "ZBT_UTIL_MAPPING"
-}
-
