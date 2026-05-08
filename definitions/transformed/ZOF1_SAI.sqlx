@@ -1,0 +1,94 @@
+config {
+  type: "incremental",
+  schema: "sales_cdc_poc",
+  name: "ZOF1_SAI",
+  tags: ["bw_migration"]
+}
+
+-- FullLoad: full table replacement on every Dataform run.
+
+WITH
+src_0FI_GL_4 AS (
+  SELECT
+    BUKRS,
+    LCURR,
+    AUFNR,
+    KOSTL,
+    PRCTR,
+    BELNR,
+    WERKS,
+    KOKRS,
+    FISCVAR
+  FROM ${ref("0FI_GL_4_S4HCLNT100")}
+),
+
+-- START ROUTINE: Delete rows where BUKRS = '4900000061'
+start_routine_0FI_GL_4 AS (
+  SELECT BUKRS, LCURR, AUFNR, KOSTL, PRCTR, BELNR, WERKS, KOKRS, FISCVAR
+  FROM src_0FI_GL_4
+  WHERE BUKRS <> '4900000061'
+),
+
+-- LOOKUP: replace fiscper_stub with ${ref("REAL_FISCAL_PERIOD_CALENDAR_TABLE")}
+--         once the fiscal-period calendar table name is confirmed.
+fiscper_stub AS (
+  -- LOOKUP: verify table name
+  SELECT
+    CAST(NULL AS STRING) AS FISCVARNT,
+    CAST(NULL AS STRING) AS DATEFROM,
+    CAST(NULL AS STRING) AS DATETO,
+    CAST(NULL AS STRING) AS `0FISCPER`
+  FROM UNNEST([]) AS empty
+),
+
+staged_ZOF1_SAI AS (
+  SELECT
+    s.BUKRS                                      AS COMP_CODE,
+    s.LCURR                                      AS CURRENCY,
+    LPAD(CAST(s.AUFNR AS STRING), 12, '0')       AS COORDER,
+    s.KOSTL                                      AS COSTCENTER,
+    s.PRCTR                                      AS PROFIT_CTR,
+    LPAD(CAST(s.BELNR AS STRING), 10, '0')       AS DOC_NUM,
+    s.WERKS                                      AS PLANT,
+    s.KOKRS                                      AS CO_AREA,
+    s.FISCVAR                                    AS `0FISCVARNT`,
+    fp.`0FISCPER`                                AS `0FISCPER`,
+    NULL                                         AS CHRT_ACCTS  -- no source mapping defined
+  FROM start_routine_0FI_GL_4 s
+  LEFT JOIN fiscper_stub fp
+    ON s.FISCVAR = fp.FISCVARNT
+),
+
+-- END ROUTINE: Replace PROFIT_CTR value 'US10_PLR' with 'US10_nss'
+end_routine_ZOF1_SAI AS (
+  SELECT
+    COMP_CODE,
+    CURRENCY,
+    COORDER,
+    COSTCENTER,
+    CASE
+      WHEN PROFIT_CTR = 'US10_PLR' THEN 'US10_nss'
+      ELSE PROFIT_CTR
+    END                                          AS PROFIT_CTR,
+    DOC_NUM,
+    PLANT,
+    CO_AREA,
+    `0FISCVARNT`,
+    `0FISCPER`,
+    CHRT_ACCTS
+  FROM staged_ZOF1_SAI
+)
+
+SELECT
+  COMP_CODE,
+  CURRENCY,
+  COORDER,
+  COSTCENTER,
+  PROFIT_CTR,
+  DOC_NUM,
+  PLANT,
+  CO_AREA,
+  `0FISCVARNT`,
+  `0FISCPER`,
+  CHRT_ACCTS
+FROM end_routine_ZOF1_SAI

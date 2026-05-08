@@ -1,0 +1,129 @@
+config {
+  type: "incremental",
+  schema: "sales_cdc_poc",
+  name: "D_SD10",
+  uniqueKey: ["DOC_NUMBER"],
+  assertions: { nonNull: ["DOC_NUMBER"] },
+  tags: ["bw_migration"]
+}
+
+-- INCREMENTAL NOTE: no timestamp column available for delta filter;
+-- full reload on every run. Add a WHERE clause when a delta key exists.
+-- D_SD10 is listed in no_timestamp_tables; when(incremental()) is omitted.
+-- MERGE load: key fields are [DOC_NUMBER]
+
+-- LOOKUP: replace fiscper_stub with ${ref("REAL_FISCAL_PERIOD_CALENDAR_TABLE")}
+--         once the fiscal-period calendar table name is confirmed.
+
+WITH
+src_SD_IS10 AS (
+  SELECT
+    DOC_NUMBER,
+    COMP_CODE,
+    QUOT_FROM,
+    QUOT_TO,
+    SALESEMPLY,
+    SOLD_TO,
+    LOC_CURRCY,
+    STAT_CURR,
+    DISTR_CHAN,
+    SALES_OFF,
+    SALES_GRP,
+    SALESORG,
+    GN_R3_SSY,
+    IMODOCCAT,
+    `0FISCVARNT`
+  FROM ${ref("SD_IS10")}
+),
+
+-- LOOKUP: replace fiscper_stub with ${ref("REAL_FISCAL_PERIOD_CALENDAR_TABLE")}
+--         once the fiscal-period calendar table name is confirmed.
+fiscper_stub AS (
+  SELECT
+    CAST(NULL AS STRING) AS FISCVARNT,
+    CAST(NULL AS DATE)   AS DATEFROM,
+    CAST(NULL AS DATE)   AS DATETO,
+    CAST(NULL AS STRING) AS `0FISCPER`,
+    CAST(NULL AS STRING) AS `0FISCYEAR`
+  FROM UNNEST([]) AS empty
+),
+
+staged_D_SD10 AS (
+  SELECT
+    -- Direct mappings
+    COALESCE(s.DOC_NUMBER, '')    AS DOC_NUMBER,
+    s.COMP_CODE                   AS COMP_CODE,
+    s.QUOT_FROM                   AS QUOT_FROM,
+    s.QUOT_TO                     AS QUOT_TO,
+    -- NUMC field: must remain STRING, never cast to INT64
+    COALESCE(s.SALESEMPLY, '')    AS SALESEMPLY,
+    s.SOLD_TO                     AS SOLD_TO,
+    -- WAERS fields: always STRING
+    s.LOC_CURRCY                  AS LOC_CURRCY,
+    s.STAT_CURR                   AS STAT_CURR,
+    s.DISTR_CHAN                   AS DISTR_CHAN,
+    s.SALES_OFF                   AS SALES_OFF,
+    s.SALES_GRP                   AS SALES_GRP,
+    s.SALESORG                    AS SALESORG,
+    s.GN_R3_SSY                   AS GN_R3_SSY,
+    s.IMODOCCAT                   AS IMODOCCAT,
+    s.`0FISCVARNT`                AS `0FISCVARNT`,
+
+    -- Calculated columns
+    -- SOURCE & TARGET FIELD DATE ONLY, NO LOGIC REQUIRED AS 0CALDAY
+    -- 0CALDAY is a DATE-type field in BW; no PARSE_DATE conversion needed.
+    -- No source 0CALDAY field present in this step's Source list; emitting NULL.
+    CAST(NULL AS DATE)            AS `0CALDAY`,  -- no source mapping defined for 0CALDAY in this step
+
+    -- LOOKUP TABLE FISCPER using FISCVARNT, 0CREATEDON between DATEFROM and DATETO AS 0FISCYEAR
+    -- Joined via fiscper_stub below (replace stub once real table name is confirmed).
+    fp.`0FISCYEAR`                AS `0FISCYEAR`,
+
+    -- LOOKUP TABLE FISCPER using FISCVARNT, 0CREATEDON between DATEFROM and DATETO AS 0FISCPER
+    fp.`0FISCPER`                 AS `0FISCPER`,
+
+    -- Calculated columns with no explicit source/logic — emitting NULL with comments
+    NULL                          AS SO_H_CNT,    -- no source mapping defined
+    CURRENT_DATE                  AS UPD_DATE,    -- UPD_DATE: populated at load time
+    NULL                          AS GN_CUSTOM,   -- no source mapping defined
+    NULL                          AS DEB_CRED,    -- no source mapping defined
+    NULL                          AS DOC_CLASS,   -- no source mapping defined
+    NULL                          AS HEADER_DEL,  -- no source mapping defined
+    NULL                          AS DLT_H_CNT    -- no source mapping defined
+
+  FROM src_SD_IS10 s
+  LEFT JOIN fiscper_stub fp
+    ON  s.`0FISCVARNT` = fp.FISCVARNT
+    -- 0CREATEDON not present in this step's Source list; join will return NULLs from stub.
+    -- Once the real fiscal calendar table is wired in, add:
+    --   AND CURRENT_DATE BETWEEN fp.DATEFROM AND fp.DATETO
+    -- replacing CURRENT_DATE with the actual 0CREATEDON source column.
+)
+
+SELECT
+  DOC_NUMBER,
+  COMP_CODE,
+  QUOT_FROM,
+  QUOT_TO,
+  SALESEMPLY,
+  SOLD_TO,
+  LOC_CURRCY,
+  STAT_CURR,
+  DISTR_CHAN,
+  SALES_OFF,
+  SALES_GRP,
+  SALESORG,
+  GN_R3_SSY,
+  IMODOCCAT,
+  `0FISCVARNT`,
+  `0CALDAY`,
+  `0FISCYEAR`,
+  `0FISCPER`,
+  SO_H_CNT,
+  UPD_DATE,
+  GN_CUSTOM,
+  DEB_CRED,
+  DOC_CLASS,
+  HEADER_DEL,
+  DLT_H_CNT
+FROM staged_D_SD10

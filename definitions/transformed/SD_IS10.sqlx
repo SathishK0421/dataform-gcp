@@ -1,0 +1,154 @@
+config {
+  type: "incremental",
+  schema: "sales_cdc_poc",
+  name: "D_SD10",
+  tags: ["bw_migration"]
+}
+
+-- INCREMENTAL NOTE: no timestamp column available for delta filter;
+-- full reload on every run. Add a WHERE clause when a delta key exists.
+
+WITH
+src_CMSD10 AS (
+  SELECT
+    GN_R3_SSY,
+    VBELN,
+    ANGDT,
+    AUART,
+    AUGRU,
+    BNDDT,
+    BUKRS,
+    ERDAT,
+    FAKSK,
+    HWAER,
+    KUNNR,
+    KURST,
+    KVGR1,
+    KVGR2,
+    KVGR3,
+    KVGR4,
+    KVGR5,
+    LIFSK,
+    PVRTNR,
+    STWAE,
+    ABSTK,
+    VBTYP,
+    VDATU,
+    VKBUR,
+    VKGRP,
+    VKORG,
+    VTWEG,
+    WAERK,
+    SPARA,
+    RFGSK,
+    VGTYP_AK,
+    ANZAU,
+    VSBED,
+    ROCANCEL,
+    RFSTK,
+    AEDAT,
+    PZPERS,
+    WBSTK,
+    ABDIS,
+    AWAHR
+  FROM ${ref("CMSD10")}
+),
+
+staged_D_SD10 AS (
+  SELECT
+    -- SOURCE & TARGET FIELD SAME, NO LOGIC REQUIRED AS 0FISCVARNT
+    s.GN_R3_SSY                                    AS `0FISCVARNT`,
+    -- NUMC: VBELN must remain STRING
+    COALESCE(s.VBELN, '')                          AS DOC_NUMBER,
+    -- _date_fields: ANGDT converted via PARSE_DATE
+    PARSE_DATE('%Y%m%d', s.ANGDT)                  AS QUOT_FROM,
+    s.AUART                                        AS DOC_TYPE,
+    s.AUGRU                                        AS ORD_REASON,
+    -- _date_fields: BNDDT converted via PARSE_DATE
+    PARSE_DATE('%Y%m%d', s.BNDDT)                  AS QUOT_TO,
+    s.BUKRS                                        AS COMP_CODE,
+    -- _date_fields: ERDAT converted via PARSE_DATE
+    PARSE_DATE('%Y%m%d', s.ERDAT)                  AS CREATEDON,
+    s.FAKSK                                        AS BILL_BLOCK,
+    -- WAERS: HWAER must remain STRING
+    s.HWAER                                        AS LOC_CURRCY,
+    -- NUMC: KUNNR must remain STRING
+    COALESCE(s.KUNNR, '')                          AS SOLD_TO,
+    s.KURST                                        AS RATE_TYPE,
+    s.KVGR1                                        AS CUST_GRP1,
+    s.KVGR2                                        AS CUST_GRP2,
+    s.KVGR3                                        AS CUST_GRP3,
+    s.KVGR4                                        AS CUST_GRP4,
+    s.KVGR5                                        AS CUST_GRP5,
+    s.LIFSK                                        AS DEL_BLOCK,
+    s.PVRTNR                                       AS SALESEMPLY,
+    -- WAERS: STWAE must remain STRING
+    s.STWAE                                        AS STAT_CURR,
+    s.ABSTK                                        AS REJ_ST_H,
+    s.VBTYP                                        AS IMODOCCAT,
+    -- _date_fields: VDATU converted via PARSE_DATE
+    PARSE_DATE('%Y%m%d', s.VDATU)                  AS REQ_DATE,
+    s.VKBUR                                        AS SALES_OFF,
+    s.VKGRP                                        AS SALES_GRP,
+    s.VKORG                                        AS SALESORG,
+    s.VTWEG                                        AS DISTR_CHAN,
+    -- WAERS: WAERK must remain STRING
+    s.WAERK                                        AS DOC_CURRCY,
+    s.SPARA                                        AS DIV_HEAD,
+    s.RFGSK                                        AS HTREF_ST,
+    s.VGTYP_AK                                     AS IMODOCCATR,
+    s.ANZAU                                        AS SO_H_CNT,
+    s.VSBED                                        AS SHIP_COND,
+    s.ROCANCEL                                     AS STORNO,
+    s.RFSTK                                        AS HREF_ST,
+    -- _date_fields: AEDAT converted via PARSE_DATE
+    PARSE_DATE('%Y%m%d', s.AEDAT)                  AS CH_ON,
+    s.PZPERS                                       AS PER_RESP,
+    s.WBSTK                                        AS TGOODMV_ST,
+    s.ABDIS                                        AS MRPDELTYP,
+    s.AWAHR                                        AS SALESPROB
+  FROM src_CMSD10 s
+)
+
+SELECT
+  GN_R3_SSY,
+  DOC_NUMBER,
+  QUOT_FROM,
+  DOC_TYPE,
+  ORD_REASON,
+  QUOT_TO,
+  COMP_CODE,
+  CREATEDON,
+  BILL_BLOCK,
+  LOC_CURRCY,
+  SOLD_TO,
+  RATE_TYPE,
+  CUST_GRP1,
+  CUST_GRP2,
+  CUST_GRP3,
+  CUST_GRP4,
+  CUST_GRP5,
+  DEL_BLOCK,
+  SALESEMPLY,
+  STAT_CURR,
+  REJ_ST_H,
+  IMODOCCAT,
+  REQ_DATE,
+  SALES_OFF,
+  SALES_GRP,
+  SALESORG,
+  DISTR_CHAN,
+  DOC_CURRCY,
+  DIV_HEAD,
+  HTREF_ST,
+  IMODOCCATR,
+  SO_H_CNT,
+  SHIP_COND,
+  STORNO,
+  HREF_ST,
+  CH_ON,
+  PER_RESP,
+  TGOODMV_ST,
+  MRPDELTYP,
+  SALESPROB
+FROM staged_D_SD10

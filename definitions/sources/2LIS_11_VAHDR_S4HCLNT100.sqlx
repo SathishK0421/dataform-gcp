@@ -1,0 +1,6 @@
+config {
+  type: "declaration",
+  database: "sapanalytics-309913",
+  schema: "sales_cdc_poc",
+  name: "2LIS_11_VAHDR_S4HCLNT100"
+}

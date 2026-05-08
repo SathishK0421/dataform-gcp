@@ -1,0 +1,98 @@
+config {
+  type: "incremental",
+  schema: "sales_cdc_poc",
+  name: "ZDS_HDR1",
+  uniqueKey: ["SALESEMPLY", "DOC_TYPE", "COMP_CODE"],
+  assertions: {
+    nonNull: ["SALESEMPLY", "DOC_TYPE", "COMP_CODE"]
+  },
+  tags: ["bw_migration"]
+}
+
+-- MERGE load: key fields are SALESEMPLY, DOC_TYPE, COMP_CODE
+
+-- LOOKUP: replace fiscper_stub with ${ref("REAL_FISCAL_PERIOD_TABLE")}
+--         once the fiscal-period calendar table name is confirmed.
+
+WITH
+
+fiscper_stub AS (
+  SELECT
+    CAST(NULL AS STRING) AS FISCVARNT,
+    CAST(NULL AS DATE)   AS DATEFROM,
+    CAST(NULL AS DATE)   AS DATETO,
+    CAST(NULL AS STRING) AS `0FISCYEAR`
+  FROM UNNEST([]) AS empty
+),
+
+src_ZDS_HDR AS (
+  SELECT
+    VBTYP,
+    PVRTNR,
+    AUART,
+    STWAE,
+    KUNNR,
+    ERDAT,
+    KVGR1,
+    VKORG,
+    VBELN,
+    BUKRS,
+    HWAER
+  FROM ${ref("ZDS_HDR")}
+),
+
+-- INCREMENTAL NOTE: ERDAT is in _date_fields (already DATE).
+-- It is used as the incremental watermark via CPR_CREATE in staged_.
+
+staged_ZDS_HDR1 AS (
+  SELECT
+    s.VBTYP                                      AS IMODOCCATR,
+    COALESCE(s.PVRTNR, '')                        AS SALESEMPLY,
+    s.AUART                                      AS DOC_TYPE,
+    s.STWAE                                      AS STAT_CURR,
+    COALESCE(s.KUNNR, '')                         AS S4SOLD_TO,
+    s.ERDAT                                      AS CPR_CREATE,
+    s.KVGR1                                      AS CUST_GRP1,
+    s.VKORG                                      AS CRMSALORGX,
+    COALESCE(s.VBELN, '')                         AS DOC_NUMBER,
+    s.BUKRS                                      AS COMP_CODE,
+    s.HWAER                                      AS LOC_CURRCY,
+    s.ERDAT                                      AS CREATEDON,
+    s.VKORG                                      AS SALESORG,
+    -- Calculated columns:
+    -- SOURCE & TARGET FIELD SAME, NO LOGIC REQUIRED AS 0FISCVARNT
+    -- No fiscal variant field available in source list; FISCVARNT join cannot be performed.
+    -- Returning NULL for fiscal period lookup columns.
+    NULL                                         AS `0FISCVARNT`,
+    fp.`0FISCYEAR`                               AS `0FISCYEAR`,
+    CAST('EXT' AS STRING)                        AS PR_CAT_SAL,
+    CAST('000010' AS STRING)                     AS AB_ITEM
+  FROM src_ZDS_HDR s
+  LEFT JOIN fiscper_stub fp
+    ON (FALSE)
+    -- FISCVARNT join skipped: no fiscal variant field (FISCVARNT/FISCVAR/PERIV)
+    -- present in source list. STWAE/HWAER are WAERS currency keys, not fiscal variant keys.
+)
+
+SELECT
+  IMODOCCATR,
+  SALESEMPLY,
+  DOC_TYPE,
+  STAT_CURR,
+  S4SOLD_TO,
+  CPR_CREATE,
+  CUST_GRP1,
+  CRMSALORGX,
+  DOC_NUMBER,
+  COMP_CODE,
+  LOC_CURRCY,
+  CREATEDON,
+  SALESORG,
+  `0FISCVARNT`,
+  `0FISCYEAR`,
+  PR_CAT_SAL,
+  AB_ITEM
+FROM staged_ZDS_HDR1
+${when(incremental(), `WHERE CPR_CREATE > (
+    SELECT IFNULL(MAX(CPR_CREATE), '1900-01-01') FROM ${self()}
+)`)}

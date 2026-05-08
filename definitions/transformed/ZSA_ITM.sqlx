@@ -1,0 +1,240 @@
+config {
+  type: "incremental",
+  schema: "sales_cdc_poc",
+  name: "ZSA_ITM",
+  tags: ["bw_migration"]
+}
+
+-- FullLoad: full table replacement on every Dataform run.
+
+WITH
+
+src_ZNS_ITEM AS (
+  SELECT
+    VBELN,
+    VOLEH,
+    VOLUM,
+    VDATU,
+    MEINS,
+    KZWI1,
+    KZWI3,
+    KZWI2,
+    KPEIN,
+    MWSBP,
+    KMEIN,
+    MATWA,
+    PKUNRG,
+    PSTYV,
+    WAERK,
+    PKUNWE,
+    BUKRS,
+    MATKL,
+    NETPR,
+    HWAER,
+    NTGEW,
+    GEWEI,
+    UVFAK,
+    UVVLK,
+    MATNR,
+    STWAE,
+    ERZET,
+    ERDAT,
+    LSMENG,
+    WERKS
+  FROM ${ref("ZNS_ITEM")}
+),
+
+-- START ROUTINE: DELETE rows WHERE MATNR = 'TG11'
+-- Translates ABAP: DELETE &SP& WHERE MATNR EQ 'TG11'.
+start_routine_ZNS_ITEM AS (
+  SELECT
+    MATNR,
+    VBELN,
+    VOLEH,
+    VOLUM,
+    VDATU,
+    MEINS,
+    KZWI1,
+    KZWI3,
+    KZWI2,
+    KPEIN,
+    MWSBP,
+    KMEIN,
+    MATWA,
+    PKUNRG,
+    PSTYV,
+    WAERK,
+    PKUNWE,
+    BUKRS,
+    MATKL,
+    NETPR,
+    HWAER,
+    NTGEW,
+    GEWEI,
+    UVFAK,
+    UVVLK,
+    STWAE,
+    ERZET,
+    ERDAT,
+    LSMENG,
+    WERKS
+  FROM src_ZNS_ITEM
+  WHERE MATNR <> 'TG11'
+),
+
+-- LOOKUP: replace fiscper_stub with ${ref("REAL_FISCAL_PERIOD_TABLE")}
+--         once the fiscal-period calendar table name is confirmed.
+--         Columns 0FISCVARNT, DATEFROM, DATETO, 0FISCPER, 0FISCYEAR are stubs.
+--         NOTE: No FISCVARNT field present in source spec; join cannot be performed.
+--         All fiscal columns will return NULL until a fiscal variant source field is available.
+fiscper_stub AS (
+  SELECT
+    CAST(NULL AS STRING) AS FISCVARNT,
+    CAST(NULL AS DATE)   AS DATEFROM,
+    CAST(NULL AS DATE)   AS DATETO,
+    CAST(NULL AS STRING) AS `0FISCPER`,
+    CAST(NULL AS STRING) AS `0FISCYEAR`
+  FROM UNNEST(ARRAY<INT64>[]) AS empty
+),
+
+staged_ZSA_ITM AS (
+  SELECT
+    -- VBELN is NUMC (zero-padded string, length 10) — keep as STRING
+    COALESCE(s.VBELN, '')                        AS IMODOCCATR,
+    s.VOLEH                                      AS VOLUMEUNIT,
+    CAST(s.VOLUM AS NUMERIC)                     AS VOLUME,
+    -- VDATU is in _date_fields: already DATE, no PARSE_DATE
+    s.VDATU                                      AS UPD_DATE,
+    s.MEINS                                      AS BASE_UOM,
+    CAST(s.KZWI1 AS NUMERIC)                     AS SUBTOT_OC1,
+    CAST(s.KZWI3 AS NUMERIC)                     AS SUBTOT_OC3,
+    CAST(s.KZWI2 AS NUMERIC)                     AS SUBTOT_OC2,
+    CAST(s.KPEIN AS NUMERIC)                     AS COND_PR_UN,
+    CAST(s.MWSBP AS NUMERIC)                     AS TAX_VALUE,
+    s.KMEIN                                      AS UNIT,
+    s.MATWA                                      AS MATENTERD,
+    -- PKUNRG is NUMC — keep as STRING
+    COALESCE(s.PKUNRG, '')                       AS PAYER,
+    s.PSTYV                                      AS ITM_CAT,
+    -- WAERK is WAERS currency key — always STRING
+    s.WAERK                                      AS DOC_CURRCY,
+    -- PKUNWE is NUMC — keep as STRING
+    COALESCE(s.PKUNWE, '')                       AS S4SHIP_TO,
+    s.BUKRS                                      AS COMP_CODE,
+    s.MATKL                                      AS MATL_GROUP,
+    CAST(s.NETPR AS NUMERIC)                     AS NETPRICE,
+    -- HWAER is WAERS currency key — always STRING
+    s.HWAER                                      AS LOC_CURRCY,
+    CAST(s.NTGEW AS NUMERIC)                     AS NET_WGT_DL,
+    s.GEWEI                                      AS UNIT_OF_WT,
+    CAST(s.UVFAK AS NUMERIC)                     AS AB_ITEM,
+    CAST(s.UVVLK AS NUMERIC)                     AS DELIV_ITEM,
+    -- MATNR is NUMC (zero-padded string, length 18) — keep as STRING
+    COALESCE(s.MATNR, '')                        AS BIC_ZMATEIAL1,
+    -- STWAE is WAERS currency key — always STRING
+    s.STWAE                                      AS STAT_CURR,
+    -- ERZET is TIMS (HHMMSS string) — convert using PARSE_TIME; target schema expects TIME type
+    PARSE_TIME('%H%M%S', s.ERZET)               AS TIME,
+    -- ERDAT is in _date_fields: already DATE, no PARSE_DATE
+    s.ERDAT                                      AS CR_ON_I,
+    CAST(s.LSMENG AS NUMERIC)                    AS REQDEKIQUANTY,
+    -- END ROUTINE logic applied below via end_routine_ZSA_ITM:
+    -- WERKS mapped to PLANT (will be overridden in end routine)
+    s.WERKS                                      AS PLANT,
+    -- Second MATNR mapping → BASIC_MATL (NUMC, keep as STRING)
+    COALESCE(s.MATNR, '')                        AS BASIC_MATL,
+    -- Second WERKS mapping → PLANTCAT
+    s.WERKS                                      AS PLANTCAT,
+    -- NETVALUE: no source mapping defined in Calculated_Column
+    NULL                                         AS NETVALUE,
+    -- 0FISCYEAR: LOOKUP TABLE FISCPER using FISCVARNT, PERIV between DATEFROM and DATETO
+    -- No FISCVARNT field in source spec; stub join returns NULL
+    fp.`0FISCYEAR`                               AS `0FISCYEAR`,
+    -- 0FISCPER: same stub lookup
+    fp.`0FISCPER`                                AS `0FISCPER`
+  FROM start_routine_ZNS_ITEM s
+  LEFT JOIN fiscper_stub fp
+    ON FALSE  -- No FISCVARNT field available in source; join disabled until fiscal variant field is confirmed
+),
+
+-- END ROUTINE: loop at result_fields, if plant = '1710' then plant = '1720'
+-- Translates ABAP end routine operating on TARGET column names (PLANT)
+end_routine_ZSA_ITM AS (
+  SELECT
+    IMODOCCATR,
+    VOLUMEUNIT,
+    VOLUME,
+    UPD_DATE,
+    BASE_UOM,
+    SUBTOT_OC1,
+    SUBTOT_OC3,
+    SUBTOT_OC2,
+    COND_PR_UN,
+    TAX_VALUE,
+    UNIT,
+    MATENTERD,
+    PAYER,
+    ITM_CAT,
+    DOC_CURRCY,
+    S4SHIP_TO,
+    COMP_CODE,
+    MATL_GROUP,
+    NETPRICE,
+    LOC_CURRCY,
+    NET_WGT_DL,
+    UNIT_OF_WT,
+    AB_ITEM,
+    DELIV_ITEM,
+    BIC_ZMATEIAL1,
+    STAT_CURR,
+    TIME,
+    CR_ON_I,
+    REQDEKIQUANTY,
+    -- END ROUTINE: if PLANT = '1710' then PLANT = '1720'
+    CASE WHEN PLANT = '1710' THEN '1720' ELSE PLANT END AS PLANT,
+    BASIC_MATL,
+    -- PLANTCAT passed as-is; no end routine substitution defined in ABAP
+    PLANTCAT,
+    NETVALUE,
+    `0FISCYEAR`,
+    `0FISCPER`
+  FROM staged_ZSA_ITM
+)
+
+SELECT
+  IMODOCCATR,
+  VOLUMEUNIT,
+  VOLUME,
+  UPD_DATE,
+  BASE_UOM,
+  SUBTOT_OC1,
+  SUBTOT_OC3,
+  SUBTOT_OC2,
+  COND_PR_UN,
+  TAX_VALUE,
+  UNIT,
+  MATENTERD,
+  PAYER,
+  ITM_CAT,
+  DOC_CURRCY,
+  S4SHIP_TO,
+  COMP_CODE,
+  MATL_GROUP,
+  NETPRICE,
+  LOC_CURRCY,
+  NET_WGT_DL,
+  UNIT_OF_WT,
+  AB_ITEM,
+  DELIV_ITEM,
+  BIC_ZMATEIAL1,
+  STAT_CURR,
+  TIME,
+  CR_ON_I,
+  REQDEKIQUANTY,
+  PLANT,
+  BASIC_MATL,
+  PLANTCAT,
+  NETVALUE,
+  `0FISCYEAR`,
+  `0FISCPER`
+FROM end_routine_ZSA_ITM
