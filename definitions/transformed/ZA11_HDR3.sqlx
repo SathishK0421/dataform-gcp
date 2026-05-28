@@ -1,0 +1,326 @@
+config {
+  type: "incremental",
+  schema: "sales_cdc_poc",
+  name: "ZA11_HDR3",
+  uniqueKey: ["DOC_TYPE", "COMP_CODE", "SALESEMPLY"],
+  assertions: {
+    nonNull: ["DOC_TYPE", "COMP_CODE", "SALESEMPLY"]
+  },
+  tags: ["bw_migration"]
+}
+
+-- LOOKUP: replace fiscper_stub with ${ref("REAL_FISCPER_TABLE_NAME")}
+--         once the fiscal-period calendar table name is confirmed.
+-- LOOKUP: replace ztsobj_stub with ${ref("ZTSOBJ")} once confirmed (hidden_lookup_tables).
+
+WITH
+
+-- ─────────────────────────────────────────────────────────────
+-- STUB: fiscal period calendar (FISCPER hidden lookup)
+-- ─────────────────────────────────────────────────────────────
+fiscper_stub AS (
+  SELECT
+    CAST(NULL AS STRING) AS FISCVARNT,
+    CAST(NULL AS DATE)   AS DATEFROM,
+    CAST(NULL AS DATE)   AS DATETO,
+    CAST(NULL AS STRING) AS `0FISCYEAR`
+  WHERE FALSE
+),
+
+-- ─────────────────────────────────────────────────────────────
+-- STEP 1 — raw read from fan-out source ZI11_HDR0
+-- ─────────────────────────────────────────────────────────────
+src_ZI11_HDR0 AS (
+  SELECT
+    VBTYP,
+    VBELN,
+    AUART,
+    BUKRS,
+    ERDAT,        -- already DATE per _date_fields
+    HWAER,
+    KUNNR,
+    KVGR1,
+    PVRTNR,
+    VKORG,
+    NETWR,
+    PKUNRG,
+    PKUNWE,
+    PKUNRE,
+    AUFNR,
+    ERZET,        -- TIMS field: HHMMSS string
+    KOSTL,
+    KOKRS,
+    SPART,
+    VTWEG,
+    WAERK,
+    AUDAT,
+    MANDT,
+    PERIV,
+    -- vkgrp needed for SALES_GRP routine; select if present in source
+    -- MANUAL REVIEW REQUIRED: confirm VKGRP column exists in ZI11_HDR0
+    CAST(NULL AS STRING) AS VKGRP  -- placeholder if VKGRP not in source
+  FROM ${ref("ZI11_HDR0")}
+),
+
+-- ─────────────────────────────────────────────────────────────
+-- STEP 2 — START ROUTINE (CODEID: 5NUTQM0JJH4NU8B0LW19UOAA6)
+-- BW DELETE &SP& WHERE erdat >= '20200101' AND auart NE 'CBFD'
+-- Translated: EXCLUDE rows where ERDAT >= 2020-01-01 AND AUART <> 'CBFD'
+-- ─────────────────────────────────────────────────────────────
+start_routine_ZI11_HDR0 AS (
+  SELECT
+    VBTYP,
+    VBELN,
+    AUART,
+    BUKRS,
+    ERDAT,
+    HWAER,
+    KUNNR,
+    KVGR1,
+    PVRTNR,
+    VKORG,
+    NETWR,
+    PKUNRG,
+    PKUNWE,
+    PKUNRE,
+    AUFNR,
+    ERZET,
+    KOSTL,
+    KOKRS,
+    SPART,
+    VTWEG,
+    WAERK,
+    AUDAT,
+    MANDT,
+    PERIV,
+    VKGRP
+  FROM src_ZI11_HDR0
+  WHERE NOT (
+    ERDAT >= DATE '2020-01-01'
+    AND AUART <> 'CBFD'
+  )
+),
+
+-- ─────────────────────────────────────────────────────────────
+-- STEP 3 — FISCPER lookup join
+-- ─────────────────────────────────────────────────────────────
+with_fiscper AS (
+  SELECT
+    s.ERDAT,
+    s.AUART,
+    s.PERIV,
+    s.VKGRP,
+    fp.`0FISCYEAR`
+  FROM start_routine_ZI11_HDR0 s
+  LEFT JOIN fiscper_stub fp
+    ON  s.PERIV    = fp.FISCVARNT
+    AND s.ERDAT   BETWEEN fp.DATEFROM AND fp.DATETO
+),
+
+-- ─────────────────────────────────────────────────────────────
+-- STEP 4 — FIELD-LEVEL ROUTINE: SALES_GRP
+-- (CODEID: 5NUTQM0JJH4NU8B0LW19UOGLQ)
+-- IF vkgrp = '170' → 'INT' ELSE vkgrp
+-- ─────────────────────────────────────────────────────────────
+with_sales_grp AS (
+  SELECT
+    ERDAT,
+    AUART,
+    PERIV,
+    VKGRP,
+    `0FISCYEAR`,
+    CASE
+      WHEN VKGRP = '170' THEN 'INT'
+      ELSE VKGRP
+    END AS SALES_GRP
+  FROM with_fiscper
+),
+
+-- ─────────────────────────────────────────────────────────────
+-- STEP 5 — staged mapping: source → target field names
+-- ─────────────────────────────────────────────────────────────
+staged_ZA11_HDR3 AS (
+  SELECT
+    -- Direct field mappings (Source[i] → Target[i])
+    VBTYP                                    AS Z_DOCCAT,       -- will be overridden by end routine
+    LPAD(CAST(VBELN AS STRING), 10, '0')     AS DOC_NUMBER,
+    AUART                                    AS DOC_TYPE,
+    BUKRS                                    AS COMP_CODE,
+    ERDAT                                    AS CREATEDON,      -- already DATE
+    HWAER                                    AS LOC_CURRCY,     -- WAERS string
+    LPAD(CAST(KUNNR AS STRING), 10, '0')     AS S4SOLD_TO,
+    KVGR1                                    AS CUST_GRP1,
+    COALESCE(PVRTNR, '')                     AS SALESEMPLY,     -- NUMC keep as string
+    VKORG                                    AS SALESORG,
+    CAST(NETWR AS NUMERIC)                   AS NET_VAL_HD,
+    VBTYP                                    AS BIC_Z_DOCAT,
+    PKUNRG                                   AS PAYER,
+    PKUNWE                                   AS S4SHIP_TO,
+    PKUNRE                                   AS S4BILLPRTY,
+    CAST(NETWR AS NUMERIC)                   AS NET_VAL_S,
+    LPAD(CAST(AUFNR AS STRING), 12, '0')     AS COORDER,
+    PARSE_TIME('%H%M%S', ERZET)              AS CREATION_TIME,
+    KOSTL                                    AS COSTCENTER,
+    KOKRS                                    AS CO_AREA,
+    SPART                                    AS DIVISION,
+    VTWEG                                    AS DISTR_CHAN,
+    WAERK                                    AS DOC_CURRCY,     -- WAERS string
+    AUDAT                                    AS DOC_DATE,
+    MANDT                                    AS CLIENT,
+    COALESCE(PERIV, '')                      AS `0FISCVARNT`,
+    -- Calculated columns
+    COALESCE(`0FISCYEAR`, '')                AS `0FISCYEAR`,
+    NULL                                     AS RANK,           -- populated in end routine
+    SALES_GRP
+  FROM with_sales_grp
+),
+
+-- ─────────────────────────────────────────────────────────────
+-- STEP 6 — END ROUTINE (CODEID: 5NUTQM0JJH4NU8B0LW19UOMXA)
+-- 6a: Map Z_DOCCAT description from BIC_Z_DOCAT
+-- 6b: Weighted NET_VAL_HD — ABAP WHEN branches truncated; values unchanged
+--     MANUAL REVIEW REQUIRED: weighted multiplier per doc category not
+--     provided in source (each WHEN branch was cut off). Keeping value as-is.
+-- 6c: Aggregate total NET_VAL_HD per S4SOLD_TO → rank descending
+-- ─────────────────────────────────────────────────────────────
+
+-- 6a+6b: map Z_DOCCAT and apply weighting (no-op weighting — see note above)
+end_routine_mapped AS (
+  SELECT
+    CASE BIC_Z_DOCAT
+      WHEN 'A' THEN 'QUOATATION'
+      WHEN 'B' THEN 'ORDER'
+      WHEN 'C' THEN 'DELIVERY'
+      WHEN 'D' THEN 'INVOICE'
+      WHEN 'E' THEN 'OTHER'
+      ELSE BIC_Z_DOCAT
+    END                                      AS Z_DOCCAT,
+    DOC_NUMBER,
+    DOC_TYPE,
+    COMP_CODE,
+    CREATEDON,
+    LOC_CURRCY,
+    S4SOLD_TO,
+    CUST_GRP1,
+    SALESEMPLY,
+    SALESORG,
+    -- Weighted NET_VAL_HD: multiplier per category not available (truncated ABAP).
+    -- MANUAL REVIEW REQUIRED: confirm weight factors for WHEN A/B/C/D/E.
+    NET_VAL_HD                               AS NET_VAL_HD,
+    BIC_Z_DOCAT,
+    PAYER,
+    S4SHIP_TO,
+    S4BILLPRTY,
+    NET_VAL_S,
+    COORDER,
+    CREATION_TIME,
+    COSTCENTER,
+    CO_AREA,
+    DIVISION,
+    DISTR_CHAN,
+    DOC_CURRCY,
+    DOC_DATE,
+    CLIENT,
+    `0FISCVARNT`,
+    `0FISCYEAR`,
+    NULL                                     AS RANK,
+    SALES_GRP
+  FROM staged_ZA11_HDR3
+),
+
+-- 6c: compute total NET_VAL_HD per customer for ranking
+customer_totals AS (
+  SELECT
+    S4SOLD_TO,
+    SUM(NET_VAL_HD) AS total_net_val
+  FROM end_routine_mapped
+  GROUP BY S4SOLD_TO
+),
+
+-- 6c: rank customers by total descending
+customer_ranked AS (
+  SELECT
+    S4SOLD_TO,
+    total_net_val,
+    RANK() OVER (ORDER BY total_net_val DESC) AS cust_rank
+  FROM customer_totals
+),
+
+-- 6c: join rank back to result package
+end_routine_ZA11_HDR3 AS (
+  SELECT
+    CASE e.BIC_Z_DOCAT
+      WHEN 'A' THEN 'QUOTATION'
+      WHEN 'B' THEN 'ORDER'
+      WHEN 'C' THEN 'DELIVERY'
+      WHEN 'D' THEN 'INVOICE'
+      WHEN 'E' THEN 'OTHER'
+      ELSE e.BIC_Z_DOCAT
+    END AS Z_DOCCAT,
+    e.DOC_NUMBER,
+    e.DOC_TYPE,
+    e.COMP_CODE,
+    e.CREATEDON,
+    e.LOC_CURRCY,
+    e.S4SOLD_TO,
+    e.CUST_GRP1,
+    e.SALESEMPLY,
+    e.SALESORG,
+    e.NET_VAL_HD,
+    e.BIC_Z_DOCAT,
+    e.PAYER,
+    e.S4SHIP_TO,
+    e.S4BILLPRTY,
+    e.NET_VAL_S,
+    e.COORDER,
+    e.CREATION_TIME,
+    e.COSTCENTER,
+    e.CO_AREA,
+    e.DIVISION,
+    e.DISTR_CHAN,
+    e.DOC_CURRCY,
+    e.DOC_DATE,
+    e.CLIENT,
+    e.`0FISCVARNT`,
+    e.`0FISCYEAR`,
+    e.SALES_GRP,
+    COALESCE(cr.cust_rank, NULL) AS RANK
+  FROM end_routine_mapped e
+  LEFT JOIN customer_ranked cr
+    ON e.S4SOLD_TO = cr.S4SOLD_TO
+)
+
+SELECT
+  Z_DOCCAT,
+  DOC_NUMBER,
+  DOC_TYPE,
+  COMP_CODE,
+  CREATEDON,
+  LOC_CURRCY,
+  S4SOLD_TO,
+  CUST_GRP1,
+  SALESEMPLY,
+  SALESORG,
+  NET_VAL_HD,
+  BIC_Z_DOCAT,
+  PAYER,
+  S4SHIP_TO,
+  S4BILLPRTY,
+  NET_VAL_S,
+  COORDER,
+  TIME,
+  COSTCENTER,
+  CO_AREA,
+  DIVISION,
+  DISTR_CHAN,
+  DOC_CURRCY,
+  DOC_DATE,
+  CLIENT,
+  `0FISCVARNT`,
+  `0FISCYEAR`,
+  SALES_GRP,
+  RANK
+FROM end_routine_ZA11_HDR3
+${when(incremental(), `WHERE CREATEDON > (
+    SELECT IFNULL(MAX(CREATEDON), DATE '1900-01-01') FROM ${self()}
+)`)}

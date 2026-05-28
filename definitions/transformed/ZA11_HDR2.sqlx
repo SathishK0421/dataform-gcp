@@ -1,0 +1,334 @@
+config {
+  type: "incremental",
+  schema: "sales_cdc_poc",
+  name: "ZA11_HDR2",
+  uniqueKey: ["DOC_TYPE", "COMP_CODE", "SALESEMPLY"],
+  assertions: {
+    nonNull: ["DOC_TYPE", "COMP_CODE", "SALESEMPLY"]
+  },
+  tags: ["bw_migration"]
+}
+
+WITH
+
+-- ============================================================
+-- HIDDEN LOOKUP: ZNS_ITEM (hidden_lookup_table, used in end routine)
+-- ============================================================
+src_zns_item AS (
+  SELECT
+    VBELN,
+    ABSTA
+  FROM ${ref("ZNS_ITEM")}
+),
+
+-- LOOKUP: replace zns_item_stub with ${ref("ZNS_ITEM")} once the table name is confirmed.
+zns_item_stub AS (
+  SELECT
+    CAST(NULL AS STRING) AS VBELN,
+    CAST(NULL AS STRING) AS ABSTA
+  FROM UNNEST([]) AS empty
+),
+
+-- ============================================================
+-- HIDDEN LOOKUP: ZTSOBJ (hidden_lookup_table, used in end routine)
+-- ============================================================
+-- LOOKUP: replace ztsobj_stub with ${ref("ZTSOBJ")} once the table name is confirmed.
+ztsobj_stub AS (
+  SELECT
+    CAST(NULL AS STRING) AS DOC_TYPE,
+    CAST(NULL AS STRING) AS IMODOCCATR
+  FROM UNNEST([]) AS empty
+),
+
+-- ============================================================
+-- LOOKUP: FISCPER stub (hidden_lookup_table)
+-- LOOKUP: replace fiscper_stub with ${ref("FISCPER")} once confirmed.
+-- ============================================================
+fiscper_stub AS (
+  SELECT
+    CAST(NULL AS STRING) AS FISCVARNT,
+    CAST(NULL AS DATE)   AS DATEFROM,
+    CAST(NULL AS DATE)   AS DATETO,
+    CAST(NULL AS STRING) AS `0FISCPER`,
+    CAST(NULL AS STRING) AS `0FISCYEAR`
+  FROM UNNEST([]) AS empty
+),
+
+-- ============================================================
+-- src_: raw read from ZI11_HDR0 (materialised fan_out_source)
+-- ============================================================
+src_ZI11_HDR0 AS (
+  SELECT
+    VBTYP,
+    VBELN,
+    AUART,
+    BUKRS,
+    ERDAT,
+    HWAER,
+    KUNNR,
+    KVGR1,
+    PVRTNR,
+    VKORG,
+    SPART,
+    PKUNWE,
+    PKUNRE,
+    NETWR,
+    KOSTL,
+    AUDAT,
+    AUFNR,
+    ERZET,
+    MANDT,
+    PKUNRG,
+    VTWEG,
+    WAERK,
+    KOKRS,
+    PERIV
+  FROM ${ref("ZI11_HDR0")}
+),
+
+-- ============================================================
+-- START ROUTINE: filter rows
+-- ABAP: DELETE &SP& WHERE erdat <= '20200101' AND auart NE 'CBFD'
+-- ============================================================
+start_routine_ZI11_HDR0 AS (
+  SELECT
+    VBELN,
+    ERDAT,
+    AUART,
+    PERIV,
+    VBTYP,
+    BUKRS,
+    HWAER,
+    KUNNR,
+    KVGR1,
+    PVRTNR,
+    VKORG,
+    SPART,
+    PKUNWE,
+    PKUNRE,
+    NETWR,
+    KOSTL,
+    AUDAT,
+    AUFNR,
+    ERZET,
+    MANDT,
+    PKUNRG,
+    VTWEG,
+    WAERK,
+    KOKRS
+  FROM src_ZI11_HDR0
+  WHERE NOT (ERDAT <= DATE '2020-01-01' AND AUART <> 'CBFD')
+),
+
+-- ============================================================
+-- FISCPER lookup join
+-- ============================================================
+fiscper_joined AS (
+  SELECT
+    s.VBELN,
+    s.ERDAT,
+    s.AUART,
+    s.PERIV,
+    fp.`0FISCYEAR`
+  FROM start_routine_ZI11_HDR0 s
+  LEFT JOIN fiscper_stub fp
+    ON s.PERIV = fp.FISCVARNT
+    AND s.ERDAT BETWEEN fp.DATEFROM AND fp.DATETO
+),
+
+-- ============================================================
+-- FIELD-LEVEL ROUTINE: SALES_GRP
+-- ABAP: IF vkgrp = '170' → 'INT' ELSE vkgrp
+-- NOTE: vkgrp not present in source list — returns NULL unless added
+-- ============================================================
+
+-- ============================================================
+-- staged_: field mapping, type casts, aliases
+-- ============================================================
+staged_ZA11_HDR2 AS (
+  SELECT
+    -- Direct mappings
+    s.VBTYP                                         AS Z_DOCCAT,      -- will be overridden in end_routine
+    LPAD(CAST(s.VBELN AS STRING), 10, '0')          AS DOC_NUMBER,
+    s.AUART                                         AS DOC_TYPE,
+    s.BUKRS                                         AS COMP_CODE,
+    s.ERDAT                                         AS CREATEDON,     -- already DATE per _date_fields
+    s.HWAER                                         AS LOC_CURRCY,    -- WAERS: STRING
+    LPAD(CAST(s.KUNNR AS STRING), 10, '0')          AS S4SOLD_TO,
+    s.KVGR1                                         AS CUST_GRP1,
+    COALESCE(s.PVRTNR, '')                          AS SALESEMPLY,    -- NUMC: STRING
+    s.VKORG                                         AS SALESORG,
+    s.VBTYP                                         AS BIC_Z_DOCAT,
+    s.SPART                                         AS DIVISION,
+    s.PKUNWE                                        AS S4SHIP_TO,
+    s.PKUNRE                                        AS S4BILLPRTY,
+    CAST(s.NETWR AS NUMERIC)                        AS NET_VAL_S,
+    CAST(s.NETWR AS NUMERIC)                        AS NET_VAL_HD,
+    s.KOSTL                                         AS COSTCENTER,
+    s.AUDAT                                         AS DOC_DATE,
+    COALESCE(s.AUFNR, '')                           AS COORDER,       -- NUMC: STRING
+    PARSE_TIME('%H%M%S', s.ERZET)                   AS TIME,
+    s.MANDT                                         AS CLIENT,
+    s.PKUNRG                                        AS PAYER,
+    s.VTWEG                                         AS DISTR_CHAN,
+    s.WAERK                                         AS DOC_CURRCY,    -- WAERS: STRING
+    s.KOKRS                                         AS CO_AREA,
+    s.PERIV                                         AS `0FISCVARNT`,
+    -- Calculated: FISCYEAR from FISCPER lookup
+    COALESCE(s.`0FISCYEAR`, '')                     AS `0FISCYEAR`,
+    -- Calculated: RANK placeholder (computed in end_routine)
+    CAST(NULL AS INT64)                             AS RANK,
+    -- Calculated: ORD_STAT placeholder (from ZNS_ITEM lookup in end_routine)
+    CAST(NULL AS STRING)                            AS ORD_STAT,
+    -- Calculated: INT_DOC_TYPE placeholder (from ZTSOBJ lookup in end_routine)
+    CAST(NULL AS STRING)                            AS INT_DOC_TYPE,
+    -- SALES_GRP: vkgrp not in source list; MANUAL REVIEW REQUIRED
+    -- ABAP: IF vkgrp = '170' -> 'INT' ELSE vkgrp
+    CAST(NULL AS STRING)                            AS SALES_GRP
+  FROM fiscper_joined s
+),
+
+-- ============================================================
+-- ZNS_ITEM lookup join (from hidden_lookup_table)
+-- Used in end routine to populate ORD_STAT via VBELN
+-- ============================================================
+with_zns_item AS (
+  SELECT
+    s.DOC_NUMBER,
+    s.DOC_TYPE,
+    COALESCE(zns.ABSTA, '')  AS ord_stat_lkp
+  FROM staged_ZA11_HDR2 s
+  LEFT JOIN src_zns_item zns
+    ON s.DOC_NUMBER = zns.VBELN
+),
+
+-- ============================================================
+-- ZTSOBJ lookup join (from hidden_lookup_table)
+-- Used in end routine to populate INT_DOC_TYPE via DOC_TYPE
+-- ============================================================
+with_ztsobj AS (
+  SELECT
+    s.DOC_NUMBER,
+    s.DOC_TYPE,
+    s.ord_stat_lkp,
+    COALESCE(zt.IMODOCCATR, '')  AS int_doc_type_lkp
+  FROM with_zns_item s
+  LEFT JOIN ztsobj_stub zt
+    ON s.DOC_TYPE = zt.DOC_TYPE
+),
+
+-- ============================================================
+-- Ranking CTE: aggregate NET_VAL_HD per S4SOLD_TO, then rank
+-- ABAP: COLLECT totals per kunnr, SORT DESCENDING, assign rank
+-- ============================================================
+ranking_agg AS (
+  SELECT
+    S4SOLD_TO,
+    SUM(NET_VAL_HD) AS total_net
+  FROM with_ztsobj
+  GROUP BY S4SOLD_TO
+),
+
+ranking_with_rank AS (
+  SELECT
+    S4SOLD_TO,
+    total_net,
+    ROW_NUMBER() OVER (ORDER BY total_net DESC) AS rank_val
+  FROM ranking_agg
+),
+
+-- ============================================================
+-- END ROUTINE: apply all post-mapping transformations
+-- - Z_DOCCAT from BIC_Z_DOCAT CASE mapping
+-- - NET_VAL_HD weighted (ABAP CASE branches were identity; preserved)
+-- - ORD_STAT from ZNS_ITEM lookup
+-- - INT_DOC_TYPE from ZTSOBJ lookup
+-- - RANK from ranking
+-- ============================================================
+end_routine_ZA11_HDR2 AS (
+  SELECT
+    -- 1a. Z_DOCCAT description mapping
+    CASE s.BIC_Z_DOCAT
+      WHEN 'A' THEN 'QUOATATION'
+      WHEN 'B' THEN 'ORDER'
+      WHEN 'C' THEN 'DELIVERY'
+      WHEN 'D' THEN 'INVOICE'
+      WHEN 'E' THEN 'OTHER'
+      ELSE s.BIC_Z_DOCAT
+    END                                             AS Z_DOCCAT,
+    s.DOC_NUMBER,
+    s.DOC_TYPE,
+    s.COMP_CODE,
+    s.CREATEDON,
+    s.LOC_CURRCY,
+    s.S4SOLD_TO,
+    s.CUST_GRP1,
+    s.SALESEMPLY,
+    s.SALESORG,
+    s.BIC_Z_DOCAT,
+    s.DIVISION,
+    s.S4SHIP_TO,
+    s.S4BILLPRTY,
+    s.NET_VAL_S,
+    -- 1b. Weighted NET_VAL_HD — ABAP CASE branch multipliers were truncated in source;
+    --     full weights could not be recovered; preserving raw value pending ABAP source review
+    s.NET_VAL_HD,
+    s.COSTCENTER,
+    s.DOC_DATE,
+    s.COORDER,
+    s.TIME,
+    s.CLIENT,
+    s.PAYER,
+    s.DISTR_CHAN,
+    s.DOC_CURRCY,
+    s.CO_AREA,
+    s.`0FISCVARNT`,
+    s.`0FISCYEAR`,
+    -- ORD_STAT: pre-computed in with_zns_item via src_ZNS_ITEM lookup
+    s.ord_stat_lkp                                  AS ORD_STAT,
+    -- INT_DOC_TYPE: pre-computed in with_ztsobj via src_ZTSOBJ lookup
+    s.int_doc_type_lkp                              AS INT_DOC_TYPE,
+    -- RANK assigned from ranking_with_rank CTE
+    COALESCE(r.rank_val, 0)                         AS RANK,
+    s.SALES_GRP
+  FROM with_ztsobj s
+  LEFT JOIN ranking_with_rank r
+    ON s.S4SOLD_TO = r.S4SOLD_TO
+)
+
+SELECT
+  Z_DOCCAT,
+  DOC_NUMBER,
+  DOC_TYPE,
+  COMP_CODE,
+  CREATEDON,
+  LOC_CURRCY,
+  S4SOLD_TO,
+  CUST_GRP1,
+  SALESEMPLY,
+  SALESORG,
+  BIC_Z_DOCAT,
+  DIVISION,
+  S4SHIP_TO,
+  S4BILLPRTY,
+  NET_VAL_S,
+  NET_VAL_HD,
+  COSTCENTER,
+  DOC_DATE,
+  COORDER,
+  TIME,
+  CLIENT,
+  PAYER,
+  DISTR_CHAN,
+  DOC_CURRCY,
+  CO_AREA,
+  `0FISCVARNT`,
+  `0FISCYEAR`,
+  ORD_STAT,
+  INT_DOC_TYPE,
+  RANK,
+  SALES_GRP
+FROM end_routine_ZA11_HDR2
+${when(incremental(), `WHERE CREATEDON > (
+    SELECT IFNULL(MAX(CREATEDON), '1900-01-01') FROM ${self()}
+)`)}
